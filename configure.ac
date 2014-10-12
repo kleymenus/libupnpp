@@ -1,5 +1,5 @@
-AC_INIT([upmpdcli], [0.8.3], [jfd@lesbonscomptes.com],
-             [upmpdcli], [http://www.lesbonscomptes.com/upmpdcli])
+AC_INIT([libupnpp], [0.8.3], [jfd@lesbonscomptes.com],
+             [libupnpp], [http://www.lesbonscomptes.com/upmpdcli])
 AC_PREREQ([2.53])
 AC_CONFIG_SRCDIR([libupnpp/upnpplib.hxx])
 AC_CONFIG_HEADERS([libupnpp/config.h])
@@ -29,9 +29,6 @@ AC_CHECK_FUNCS([getifaddrs] [UpnpSetLogLevel])
 AC_CHECK_LIB([expat], [XML_ParserCreate], [], 
 		      AC_MSG_ERROR([libexpat not found]))
 LIBUPNPP_LIBS="$LIBS"
-
-AC_CHECK_LIB([mpdclient], [mpd_connection_new], [],
-                     AC_MSG_ERROR([libmpdclient not found]))
 
 LIBS=""
                      
