@@ -18,9 +18,6 @@
 /* Define to 1 if you have the `ixml' library (-lixml). */
 #undef HAVE_LIBIXML
 
-/* Define to 1 if you have the `mpdclient' library (-lmpdclient). */
-#undef HAVE_LIBMPDCLIENT
-
 /* Define to 1 if you have the `pthread' library (-lpthread). */
 #undef HAVE_LIBPTHREAD
 
