@@ -81,7 +81,11 @@ nobase_include_HEADERS = \
     libupnpp/upnpplib.hxx \
     libupnpp/upnpputils.hxx
 
-libupnpp_la_LDFLAGS = -release $(VERSION)
+# We include both -release and -version-info: for now the lib interface is
+# unstable and dependant packages should be updated every time the lib
+# release changes. Once things are stabilized, we should drop the -release flag
+libupnpp_la_LDFLAGS = -release $(VERSION) -version-info $(VERSION_INFO)
+
 libupnpp_la_LIBADD = $(LIBUPNPP_LIBS)
 
 dist-hook:

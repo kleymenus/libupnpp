@@ -1,8 +1,19 @@
-AC_INIT([libupnpp], [0.8.4], [jfd@lesbonscomptes.com],
+AC_INIT([libupnpp], [0.8.5], [jfd@lesbonscomptes.com],
              [libupnpp], [http://www.lesbonscomptes.com/upmpdcli])
+
+# Lib version info. See:
+#   https://www.sourceware.org/autobook/autobook/autobook_91.html#SEC91
+#   https://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html
+# The Makefile uses both -release and -version-info: for now the lib
+# interface is unstable and dependant packages should be updated every time
+# the lib release changes. Once things are stabilized, we should drop the
+# -release flag. Lib names for now: libupnpp-x.y.z.so.0.0.0
+VERSION_INFO=0:0:0
+
 AC_PREREQ([2.53])
 AC_CONFIG_SRCDIR([libupnpp/upnpplib.hxx])
 AC_CONFIG_HEADERS([libupnpp/config.h])
+
 
 AM_INIT_AUTOMAKE([1.10 no-define subdir-objects foreign])
 AC_DISABLE_STATIC
@@ -33,6 +44,7 @@ LIBUPNPP_LIBS="$LIBS"
 LIBS=""
                      
 AC_SUBST(LIBUPNPP_LIBS)
+AC_SUBST(VERSION_INFO)
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT

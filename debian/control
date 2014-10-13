@@ -4,12 +4,22 @@ Priority: extra
 Maintainer: Jean-Francois Dockes <jf@dockes.org>
 Build-Depends: debhelper (>= 8.0.0), autotools-dev,
                libupnp6-dev, libexpat1-dev, libcurl-dev
-Standards-Version: 3.9.3
+Standards-Version: 3.9.5
 Homepage: http://www.lesbonscomptes.com/upmpdcli
 
-Package: libupnpp
+Package: libupnpp-dev
+Section: contrib/libdevel
+Architecture: any
+Depends: libupnpp0, ${misc:Depends}
+Description: C++ layer over libupnp (development files)
+ Development library and include files for libupnpp
+
+Package: libupnpp0
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
+Replaces: libupnpp
+Breaks: libupnpp
+Provides: libupnpp
 Description: C++ layer over libupnp.
  libupnpp wraps libupnp calls and data inside easier to use C++ constructs.
  It can be used to build either devices or control points. 

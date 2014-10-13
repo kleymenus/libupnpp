@@ -1,3 +1,9 @@
+libupnpp (0.8.5-1) unstable; urgency=low
+
+  * Separate runtime and development packages.
+
+ -- Jean-Francois Dockes <jf@dockes.org>  Mon, 13 Oct 2014 16:20:00 +0200
+
 libupnpp (0.8.4-1) unstable; urgency=low
 
   * First version separated from the upmpdcli source tree. Same as 0.8.3
