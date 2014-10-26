@@ -179,7 +179,6 @@ protected:
         if (s == 0 || *s == 0)
             return;
         string str(s, len);
-        trimstring(str);
         m_path.back().data += str;
     }
 
