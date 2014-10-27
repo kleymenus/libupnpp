@@ -43,9 +43,9 @@ public:
     {
         //LOGDEB("UPnPDirParser: input: " << input << endl);
         m_okitems["object.item.audioItem.musicTrack"] =
-            UPnPDirObject::audioItem_musicTrack;
+            UPnPDirObject::ITC_audioItem_musicTrack;
         m_okitems["object.item.playlistItem"] =
-            UPnPDirObject::audioItem_playlist;
+            UPnPDirObject::ITC_audioItem_playlist;
     }
     UPnPDirContent& m_dir;
 
@@ -94,10 +94,6 @@ protected:
 
     virtual bool checkobjok()
     {
-        // I don't see the point of this checking any more. Let the caller deal
-        // with filtering entries.
-        return true;
-
         bool ok =  !m_tobj.m_id.empty() && !m_tobj.m_pid.empty() &&
             !m_tobj.m_title.empty();
 
@@ -107,7 +103,7 @@ protected:
             if (it == m_okitems.end()) {
                 LOGINF("checkobjok: found object of unknown class: [" <<
                        m_tobj.m_props["upnp:class"] << endl);
-                ok = false;
+                m_tobj.m_iclass = UPnPDirObject::ITC_unknown;
             } else {
                 m_tobj.m_iclass = it->second;
             }

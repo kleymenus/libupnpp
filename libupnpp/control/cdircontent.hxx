@@ -57,7 +57,8 @@ public:
     // items are special to us, and so should playlists, but I've not
     // seen one of the latter yet (servers seem to use containers for
     // playlists).
-    enum ItemClass {audioItem_musicTrack, audioItem_playlist};
+    enum ItemClass {ITC_audioItem_musicTrack, ITC_audioItem_playlist, 
+                    ITC_unknown};
 
     std::string m_id; // ObjectId
     std::string m_pid; // Parent ObjectId
