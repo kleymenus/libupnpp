@@ -118,6 +118,11 @@ public:
      */
     int search(const std::string& objectId, const std::string& searchstring,
                UPnPDirContent& dirbuf);
+    /** Same to search() as readDirSlice to readDir() */
+    int searchSlice(const std::string& objectId, 
+                    const std::string& searchstring,
+                    int offset, int count, UPnPDirContent& dirbuf,
+                    int *didread, int *total);
 
     /** Read metadata for a given node.
      *

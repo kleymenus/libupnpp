@@ -194,7 +194,7 @@ void ContentDirectory::registerCallback()
 
 int ContentDirectory::readDirSlice(const string& objectId, int offset,
                                           int count, UPnPDirContent& dirbuf,
-                                          int *didreadp, int *totalp)
+                                          int *didread, int *total)
 {
     LOGDEB("CDService::readDirSlice: objId [" << objectId << "] offset " << 
            offset << " count " << count << endl);
@@ -214,16 +214,16 @@ int ContentDirectory::readDirSlice(const string& objectId, int offset,
     if (ret != UPNP_E_SUCCESS) {
         return ret;
     }
-    int didread;
+
     string tbuf;
-    if (!data.getInt("NumberReturned", &didread) ||
-        !data.getInt("TotalMatches", totalp) ||
+    if (!data.getInt("NumberReturned", didread) ||
+        !data.getInt("TotalMatches", total) ||
         !data.getString("Result", &tbuf)) {
         LOGERR("CDService::readDir: missing elts in response" << endl);
         return UPNP_E_BAD_RESPONSE;
     }
 
-    if (didread <= 0) {
+    if (*didread <= 0) {
         LOGINF("CDService::readDir: got -1 or 0 entries" << endl);
         return UPNP_E_BAD_RESPONSE;
     }
@@ -231,12 +231,11 @@ int ContentDirectory::readDirSlice(const string& objectId, int offset,
 #if 0
     cerr << "CDService::readDirSlice: count " << count <<
         " offset " << offset <<
-        " total " << *totalp << endl;
+        " total " << *total << endl;
     cerr << " result " << tbuf << endl;
 #endif
 
     dirbuf.parse(tbuf);
-    *didreadp = didread;
 
     return UPNP_E_SUCCESS;
 }
@@ -264,9 +263,52 @@ int ContentDirectory::readDir(const string& objectId,
     return UPNP_E_SUCCESS;
 }
 
+int ContentDirectory::searchSlice(const string& objectId,
+                                  const string& ss,
+                                  int offset, int count, UPnPDirContent& dirbuf,
+                                  int *didread, int *total)
+{
+    LOGDEB("CDService::searchSlice: objId [" << objectId << "] offset " << 
+           offset << " count " << count << endl);
+
+    // Create request
+    SoapData args(m_serviceType, "Search");
+    args("ContainerID", objectId)
+        ("SearchCriteria", ss)
+        ("Filter", "*")
+        ("SortCriteria", "")
+        ("StartingIndex", SoapHelp::i2s(offset))
+        ("RequestedCount", SoapHelp::i2s(count)); 
+
+    SoapArgs data;
+    int ret = runAction(args, data);
+
+    if (ret != UPNP_E_SUCCESS) {
+        LOGINF("CDService::search: UpnpSendAction failed: " <<
+               UpnpGetErrorMessage(ret) << endl);
+        return ret;
+    }
+
+    string tbuf;
+    if (!data.getInt("NumberReturned", didread) ||
+        !data.getInt("TotalMatches", total) ||
+        !data.getString("Result", &tbuf)) {
+        LOGERR("CDService::search: missing elts in response" << endl);
+        return UPNP_E_BAD_RESPONSE;
+    }
+    if (*didread <=  0) {
+        LOGINF("CDService::search: got -1 or 0 entries" << endl);
+        return count < 0 ? UPNP_E_BAD_RESPONSE : UPNP_E_SUCCESS;
+    }
+
+    dirbuf.parse(tbuf);
+
+    return UPNP_E_SUCCESS;
+}
+
 int ContentDirectory::search(const string& objectId,
-                                    const string& ss,
-                                    UPnPDirContent& dirbuf)
+                             const string& ss,
+                             UPnPDirContent& dirbuf)
 {
     LOGDEB("CDService::search: url [" << m_actionURL << "] type [" << 
            m_serviceType << "] udn [" << m_deviceId << "] objid [" << 
@@ -276,39 +318,13 @@ int ContentDirectory::search(const string& objectId,
     int total = 1000;// Updated on first read.
 
     while (offset < total) {
-        // Create request
-        SoapData args(m_serviceType, "Search");
-        args("ContainerID", objectId)
-            ("SearchCriteria", ss)
-            ("Filter", "*")
-            ("SortCriteria", "")
-            ("StartingIndex", SoapHelp::i2s(offset))
-            ("RequestedCount", "10"); 
+        int count;
+        int error = searchSlice(objectId, ss, offset, m_rdreqcnt, dirbuf,
+                                &count, &total);
+        if (error != UPNP_E_SUCCESS)
+            return error;
 
-        SoapArgs data;
-        int ret = runAction(args, data);
-
-        if (ret != UPNP_E_SUCCESS) {
-            LOGINF("CDService::search: UpnpSendAction failed: " <<
-                   UpnpGetErrorMessage(ret) << endl);
-            return ret;
-        }
-
-        int count = -1;
-        string tbuf;
-        if (!data.getInt("NumberReturned", &count) ||
-            !data.getInt("TotalMatches", &total) ||
-            !data.getString("Result", &tbuf)) {
-            LOGERR("CDService::search: missing elts in response" << endl);
-            return UPNP_E_BAD_RESPONSE;
-        }
-        if (count <=  0) {
-            LOGINF("CDService::search: got -1 or 0 entries" << endl);
-            return count < 0 ? UPNP_E_BAD_RESPONSE : UPNP_E_SUCCESS;
-        }
         offset += count;
-
-        dirbuf.parse(tbuf);
     }
 
     return UPNP_E_SUCCESS;
