@@ -94,8 +94,11 @@ protected:
 
     virtual bool checkobjok()
     {
-        bool ok =  !m_tobj.m_id.empty() && !m_tobj.m_pid.empty() &&
-            !m_tobj.m_title.empty();
+        // We used to check id and pid not empty, but this is ok if we
+        // are parsing a didl fragment sent from a control point. So
+        // lets all ok and hope for the best.
+        bool ok =  true; /*!m_tobj.m_id.empty() && !m_tobj.m_pid.empty() &&
+                           !m_tobj.m_title.empty();*/
 
         if (ok && m_tobj.m_type == UPnPDirObject::item) {
             map<string, UPnPDirObject::ItemClass>::const_iterator it;
