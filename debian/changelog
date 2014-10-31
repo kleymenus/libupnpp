@@ -1,3 +1,9 @@
+libupnpp (0.8.6-1) unstable; urgency=low
+
+  * Small fixes and improvements mostly to the control side 
+
+ -- Jean-Francois Dockes <jf@dockes.org>  Thu, 30 Oct 2014 12:54:00 +0200
+
 libupnpp (0.8.5-1) unstable; urgency=low
 
   * Separate runtime and development packages.
