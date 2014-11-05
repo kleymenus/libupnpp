@@ -48,7 +48,9 @@ namespace UPnPP {
     };
         
 #define DEBOUT (Logger::getTheLog("")->getstream())
+#ifndef LOCAL_LOGINC
 #define LOCAL_LOGINC 0
+#endif
 #define LOGLEVEL (Logger::getTheLog("")->getloglevel()+LOCAL_LOGINC)
 
 #define LOGDEB1(X) {                                                    \

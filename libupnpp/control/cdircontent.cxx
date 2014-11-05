@@ -105,7 +105,7 @@ protected:
             it = m_okitems.find(m_tobj.m_props["upnp:class"]);
             if (it == m_okitems.end()) {
                 LOGINF("checkobjok: found object of unknown class: [" <<
-                       m_tobj.m_props["upnp:class"] << endl);
+                       m_tobj.m_props["upnp:class"] << "]" << endl);
                 m_tobj.m_iclass = UPnPDirObject::ITC_unknown;
             } else {
                 m_tobj.m_iclass = it->second;
