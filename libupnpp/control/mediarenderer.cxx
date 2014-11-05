@@ -87,47 +87,87 @@ bool MediaRenderer::hasOpenHome()
 
 RDCH MediaRenderer::rdc() 
 {
+    auto rdcl = m_rdc.lock();
+    if (rdcl)
+        return rdcl;
     for (auto it = m_desc.services.begin(); it != m_desc.services.end(); it++) {
         if (RenderingControl::isRDCService(it->serviceType)) {
-            m_rdc = RDCH(new RenderingControl(m_desc, *it));
-            return m_rdc;
+            rdcl = RDCH(new RenderingControl(m_desc, *it));
+            break;
         }
     }
-    LOGERR("MediaRenderer::rdc: RenderingControl service not found" << endl);
-    return m_rdc;
+    if (!rdcl)
+        LOGERR("MediaRenderer::rdc: RenderingControl service not found" << endl);
+    m_rdc = rdcl;
+    return rdcl;
 }
 
 AVTH MediaRenderer::avt() 
 {
+    auto avtl = m_avt.lock();
+    if (avtl)
+        return avtl;
     for (auto it = m_desc.services.begin(); it != m_desc.services.end(); it++) {
         if (AVTransport::isAVTService(it->serviceType)) {
-            return m_avt = AVTH(new AVTransport(m_desc, *it));
+            avtl = AVTH(new AVTransport(m_desc, *it));
+            break;
         }
     }
-    LOGERR("MediaRenderer::avt: AVTransport service not found" << endl);
-    return m_avt;
+    if (!avtl)
+        LOGERR("MediaRenderer::avt: AVTransport service not found" << endl);
+    m_avt = avtl;
+    return avtl;
 }
 
 OHPRH MediaRenderer::ohpr() 
 {
+    auto ohprl = m_ohpr.lock();
+    if (ohprl)
+        return ohprl;
     for (auto it = m_desc.services.begin(); it != m_desc.services.end(); it++) {
         if (OHProduct::isOHPrService(it->serviceType)) {
-            return m_ohpr = OHPRH(new OHProduct(m_desc, *it));
+            ohprl = OHPRH(new OHProduct(m_desc, *it));
+            break;
         }
     }
-    LOGINF("MediaRenderer::ohpr: OHProduct service not found" << endl);
-    return m_ohpr;
+    if (!ohprl)
+        LOGINF("MediaRenderer::ohpr: OHProduct service not found" << endl);
+    m_ohpr = ohprl;
+    return ohprl;
 }
 
 OHPLH MediaRenderer::ohpl() 
 {
+    auto ohpll = m_ohpl.lock();
+    if (ohpll)
+        return ohpll;
     for (auto it = m_desc.services.begin(); it != m_desc.services.end(); it++) {
         if (OHPlaylist::isOHPlService(it->serviceType)) {
-            return m_ohpl = OHPLH(new OHPlaylist(m_desc, *it));
+            ohpll = OHPLH(new OHPlaylist(m_desc, *it));
+            break;
         }
     }
-    LOGINF("MediaRenderer::ohpl: OHPlaylist service not found" << endl);
-    return m_ohpl;
+    if (!ohpll)
+        LOGINF("MediaRenderer::ohpl: OHPlaylist service not found" << endl);
+    m_ohpl = ohpll;
+    return ohpll;
+}
+
+OHTMH MediaRenderer::ohtm() 
+{
+    auto ohtml = m_ohtm.lock();
+    if (ohtml)
+        return ohtml;
+    for (auto it = m_desc.services.begin(); it != m_desc.services.end(); it++) {
+        if (OHTime::isOHTMService(it->serviceType)) {
+            ohtml = OHTMH(new OHTime(m_desc, *it));
+            break;
+        }
+    }
+    if (!ohtml)
+        LOGINF("MediaRenderer::ohtm: OHTime service not found" << endl);
+    m_ohtm = ohtml;
+    return ohtml;
 }
 
 }

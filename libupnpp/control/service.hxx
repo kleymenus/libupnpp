@@ -36,13 +36,24 @@ using namespace UPnPP;
 
 namespace UPnPClient {
 
+class Service;
+
 /** To be implemented by upper-level client code for event
  * reporting. Runs in an event thread. This could for example be
  * implemented by a Qt Object to generate events for the GUI.
  */
 class VarEventReporter {
 public:
-    virtual ~VarEventReporter() {};
+    VarEventReporter() : m_serv(0) {}
+    // Can't be inline cause it needs to call on Service which is not
+    // yet defined
+    virtual ~VarEventReporter();
+
+    // This is called by the Service class for ensuring cleanup
+    void setService(Service *srv) {
+        m_serv = srv;
+    }
+
     // Using char * to avoid any issue with strings and concurrency
     virtual void changed(const char *nm, int val)  = 0;
     virtual void changed(const char *nm, const char *val) = 0;
@@ -51,6 +62,8 @@ public:
     virtual void changed(const char */*nm*/, UPnPDirObject /*meta*/) {};
     // Used by ohplaylist. Not always needed
     virtual void changed(const char */*nm*/, std::vector<int> /*ids*/) {};
+private:
+    Service *m_serv;
 };
 
 typedef 
@@ -85,6 +98,8 @@ public:
     virtual void installReporter(VarEventReporter* reporter)
     {
         m_reporter = reporter;
+        if (m_reporter)
+            m_reporter->setService(this);
     }
 
     // Can't copy these because this does not make sense for the
@@ -118,13 +133,17 @@ protected:
     std::string m_friendlyName;
     std::string m_manufacturer;
     std::string m_modelName;
-
-    int runTrivialAction(const std::string& nm) {
-        SoapEncodeInput args(m_serviceType, nm);
+    
+    /** Run trivial action where there are neither input parameters
+       nor return data (beyond the status) */
+    int runTrivialAction(const std::string& actionName) {
+        SoapEncodeInput args(m_serviceType, actionName);
         SoapDecodeOutput data;
         return runAction(args, data);
     }
 
+    /* Run action where there are no input parameters and a single
+       named value is to be retrieved from the result */
     template <class T> int runSimpleGet(const std::string& actnm, 
                                         const std::string& valnm,
                                         T *valuep) {
@@ -141,6 +160,8 @@ protected:
         }
         return 0;
     }
+
+    /* Run action with a single input parameter and no return data */
     template <class T> int runSimpleAction(const std::string& actnm, 
                                            const std::string& valnm,
                                            T value) {

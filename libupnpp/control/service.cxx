@@ -50,6 +50,11 @@ public:
      }
 };
 
+VarEventReporter::~VarEventReporter() {
+    if (m_serv)
+        m_serv->installReporter(0);
+}
+
 Service::Service(const UPnPDeviceDesc& device,
                  const UPnPServiceDesc& service, bool doSubscribe)
     : m_reporter(0), 
@@ -69,7 +74,11 @@ Service::Service(const UPnPDeviceDesc& device,
 
 Service::~Service()
 {
-    LOGDEB1("Service::~Service: unregister " << m_SID << endl);
+    LOGDEB("Service::~Service: " << m_serviceType << " SID " << m_SID << endl);
+    // Make sure the reporter does not try to uninstall itself when it
+    // is deleted, possibly after us
+    if (m_reporter)
+        m_reporter->setService(0);
     if (m_SID[0]) {
         unSubscribe();
         o_calls.erase(m_SID);

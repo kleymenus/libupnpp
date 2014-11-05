@@ -25,6 +25,7 @@
 #include "libupnpp/control/device.hxx"  // for Device
 #include "libupnpp/control/ohplaylist.hxx"  // for OHPLH
 #include "libupnpp/control/ohproduct.hxx"  // for OHPRH
+#include "libupnpp/control/ohtime.hxx"
 #include "libupnpp/control/renderingcontrol.hxx"  // for RDCH
 
 namespace UPnPClient {
@@ -42,6 +43,7 @@ public:
     AVTH avt();
     OHPRH ohpr();
     OHPLH ohpl();
+    OHTMH ohtm();
 
     bool hasOpenHome();
 
@@ -50,10 +52,11 @@ public:
     static bool isMRDevice(const std::string& devicetype);
 
 protected:
-    RDCH m_rdc;
-    AVTH m_avt;
-    OHPRH m_ohpr;
-    OHPLH m_ohpl;
+    std::weak_ptr<RenderingControl> m_rdc;
+    std::weak_ptr<AVTransport> m_avt;
+    std::weak_ptr<OHProduct> m_ohpr;
+    std::weak_ptr<OHPlaylist> m_ohpl;
+    std::weak_ptr<OHTime> m_ohtm;
 
     static const std::string DType;
 };

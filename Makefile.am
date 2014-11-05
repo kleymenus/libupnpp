@@ -30,6 +30,8 @@ libupnpp_la_SOURCES = \
     libupnpp/control/ohplaylist.hxx \
     libupnpp/control/ohproduct.cxx \
     libupnpp/control/ohproduct.hxx \
+    libupnpp/control/ohtime.cxx \
+    libupnpp/control/ohtime.hxx \
     libupnpp/control/renderingcontrol.cxx \
     libupnpp/control/renderingcontrol.hxx \
     libupnpp/control/service.cxx \
@@ -60,6 +62,7 @@ libupnpp_la_SOURCES = \
     libupnpp/workqueue.hxx
 
 nobase_include_HEADERS = \
+    libupnpp/base64.hxx \
     libupnpp/control/avtransport.hxx \
     libupnpp/control/cdircontent.hxx \
     libupnpp/control/cdirectory.hxx \
@@ -68,12 +71,12 @@ nobase_include_HEADERS = \
     libupnpp/control/discovery.hxx \
     libupnpp/control/mediarenderer.hxx \
     libupnpp/control/mediaserver.hxx \
-    libupnpp/control/ohproduct.hxx \
     libupnpp/control/ohplaylist.hxx \
+    libupnpp/control/ohproduct.hxx \
+    libupnpp/control/ohtime.hxx \
     libupnpp/control/renderingcontrol.hxx \
     libupnpp/control/service.hxx \
     libupnpp/device/device.hxx \
-    libupnpp/base64.hxx \
     libupnpp/log.hxx \
     libupnpp/ptmutex.hxx \
     libupnpp/soaphelp.hxx \
