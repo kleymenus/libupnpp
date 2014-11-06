@@ -18,6 +18,7 @@
 #define _UPNPAVUTILS_HXX_INCLUDED_
 
 #include <string>
+#include <vector>
 
 namespace UPnPP {
 
@@ -26,6 +27,9 @@ extern std::string upnpduration(int ms);
 
 /** H+:MM:SS to seconds */
 extern int upnpdurationtos(const std::string& dur);
+
+/** Decode OH playlist id array */
+extern bool ohplIdArrayToVec(const std::string& data, std::vector<int> *ids);
 
 }
 

@@ -17,7 +17,6 @@
 #include "libupnpp/control/ohplaylist.hxx"
 
 #include <expat_external.h>             // for XML_Char
-#include <netinet/in.h>                 // for ntohl
 #include <stdlib.h>                     // for atoi
 #include <string.h>                     // for strcmp
 #include <upnp/upnp.h>                  // for UPNP_E_BAD_RESPONSE, etc
@@ -28,7 +27,7 @@
 #include <utility>                      // for pair
 #include <vector>                       // for vector
 
-#include "libupnpp/base64.hxx"          // for base64_decode
+#include "libupnpp/upnpavutils.hxx"
 #include "libupnpp/control/cdircontent.hxx"  // for UPnPDirContent, etc
 #include "libupnpp/control/service.hxx"  // for VarEventReporter, Service
 #include "libupnpp/expatmm.hxx"         // for inputRefXMLParser
@@ -71,18 +70,6 @@ static int stringToTpState(const string& value, OHPlaylist::TPState *tpp)
     return UPNP_E_BAD_RESPONSE;
 }
 
-// Translate IdArray: base64-encoded array of binary msb 32bits integers
-static void idArrayToVec(const string& _data, vector<int> *ids)
-{    
-    string data = base64_decode(_data);
-    const char *cp = data.c_str();
-    while (cp - data.c_str() <= int(data.size()) - 4) {
-        unsigned int *ip = (unsigned int *)cp;
-        ids->push_back(ntohl(*ip));
-        cp += 4;
-    }
-}
-
 void OHPlaylist::evtCallback(
     const std::unordered_map<std::string, std::string>& props)
 {
@@ -117,7 +104,7 @@ void OHPlaylist::evtCallback(
         } else if (!it->first.compare("IdArray")) {
             // Decode IdArray. See how we call the client
             vector<int> v;
-            idArrayToVec(it->second, &v);
+            ohplIdArrayToVec(it->second, &v);
             m_reporter->changed(it->first.c_str(), v);
 
         } else {
@@ -375,7 +362,7 @@ int OHPlaylist::idArray(vector<int> *ids, int *tokp)
         LOGINF("OHPlaylist::idArray: missing Array in response" << endl);
         // We get this for an empty array ? This would need to be investigated
     }
-    idArrayToVec(arraydata, ids);
+    ohplIdArrayToVec(arraydata, ids);
     return 0;
 }
 

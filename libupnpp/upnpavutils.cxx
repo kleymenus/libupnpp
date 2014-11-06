@@ -16,8 +16,12 @@
  */
 #include "libupnpp/upnpavutils.hxx"
 
+#include <netinet/in.h>                 // for ntohl
+
 #include <cstdio>
 #include <string>
+
+#include "base64.hxx"
 
 using namespace std;
 
@@ -51,6 +55,25 @@ int upnpdurationtos(const string& dur)
 	return 0;
     }
     return 3600 * hours + 60 * minutes + seconds;
+}
+
+// Decode OHPlaylist IdArray: base64-encoded array of binary msb
+// 32bits integers, into vector<int>. This is used internally by the
+// device side too, so it's more convenient to have it here than in
+// the control ohplaylist
+bool ohplIdArrayToVec(const string& _data, vector<int> *ids)
+{    
+    string data;
+    if (!base64_decode(_data, data)) {
+        return false;
+    }
+    const char *cp = data.c_str();
+    while (cp - data.c_str() <= int(data.size()) - 4) {
+        unsigned int *ip = (unsigned int *)cp;
+        ids->push_back(ntohl(*ip));
+        cp += 4;
+    }
+    return true;
 }
 
 }
