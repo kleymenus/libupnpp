@@ -351,12 +351,20 @@ int clock_gettime(int /*clk_id*/, struct timespec* t) {
 
 // Loop on services, and poll each for changed data. Generate event
 // only if changed data exists. Every now and then, we generate an
-// artificial event with all the current state. This is normally run by the main thread.
+// artificial event with all the current state. This is normally run
+// by the main thread.
 void UpnpDevice::eventloop()
 {
     int count = 0;
-    const int loopwait_ms = 1000; // Polling the services every 1 S
-    const int nloopstofull = 10;  // Full state every 10 S
+    // Polling the services every 1 S
+    const int loopwait_ms = 1000; 
+    // Full state every 10 S. This should not be necessary, but it
+    // ensures that CPs get updated about our state even if they miss
+    // some events. For example, the Songcast windows sender does not
+    // see the TransportState transition to "Playing" if it is not
+    // repeated few seconds later, with bad consequences on further
+    // operations
+    const int nloopstofull = 10;  
     struct timespec wkuptime, earlytime;
     bool didearly = false;
 
