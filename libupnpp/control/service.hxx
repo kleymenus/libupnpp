@@ -44,16 +44,6 @@ class Service;
  */
 class VarEventReporter {
 public:
-    VarEventReporter() : m_serv(0) {}
-    // Can't be inline cause it needs to call on Service which is not
-    // yet defined
-    virtual ~VarEventReporter();
-
-    // This is called by the Service class for ensuring cleanup
-    void setService(Service *srv) {
-        m_serv = srv;
-    }
-
     // Using char * to avoid any issue with strings and concurrency
     virtual void changed(const char *nm, int val)  = 0;
     virtual void changed(const char *nm, const char *val) = 0;
@@ -62,8 +52,6 @@ public:
     virtual void changed(const char */*nm*/, UPnPDirObject /*meta*/) {};
     // Used by ohplaylist. Not always needed
     virtual void changed(const char */*nm*/, std::vector<int> /*ids*/) {};
-private:
-    Service *m_serv;
 };
 
 typedef 
@@ -74,8 +62,7 @@ class Service {
 public:
     /** Construct by copying data from device and service objects.
      */
-    Service(const UPnPDeviceDesc& device,
-            const UPnPServiceDesc& service, bool doSubscribe = true);
+    Service(const UPnPDeviceDesc& device, const UPnPServiceDesc& service); 
 
     /** An empty one */
     Service() : m_reporter(0) {}
@@ -98,8 +85,6 @@ public:
     virtual void installReporter(VarEventReporter* reporter)
     {
         m_reporter = reporter;
-        if (m_reporter)
-            m_reporter->setService(this);
     }
 
     // Can't copy these because this does not make sense for the
@@ -122,6 +107,7 @@ protected:
      * obtained by subscribe() during construction 
      */
     void registerCallback(evtCBFunc c);
+    void unregisterCallback();
 
     /** Upper level client code event callbacks */
     VarEventReporter *m_reporter;

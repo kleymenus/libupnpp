@@ -115,6 +115,10 @@ ContentDirectory::ContentDirectory(const UPnPDeviceDesc& device,
     } 
     registerCallback();
 }
+ContentDirectory::~ContentDirectory()
+{
+    unregisterCallback();
+}
 
 // We don't include a version in comparisons, as we are satisfied with
 // version 1

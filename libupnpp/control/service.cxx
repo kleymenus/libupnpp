@@ -50,13 +50,8 @@ public:
      }
 };
 
-VarEventReporter::~VarEventReporter() {
-    if (m_serv)
-        m_serv->installReporter(0);
-}
-
 Service::Service(const UPnPDeviceDesc& device,
-                 const UPnPServiceDesc& service, bool doSubscribe)
+                 const UPnPServiceDesc& service)
     : m_reporter(0), 
       m_actionURL(caturl(device.URLBase, service.controlURL)),
       m_eventURL(caturl(device.URLBase, service.eventSubURL)),
@@ -68,21 +63,11 @@ Service::Service(const UPnPDeviceDesc& device,
 { 
     // Only does anything the first time
     initEvents();
-    if (doSubscribe)
-        subscribe();
 }
 
 Service::~Service()
 {
     LOGDEB("Service::~Service: " << m_serviceType << " SID " << m_SID << endl);
-    // Make sure the reporter does not try to uninstall itself when it
-    // is deleted, possibly after us
-    if (m_reporter)
-        m_reporter->setService(0);
-    if (m_SID[0]) {
-        unSubscribe();
-        o_calls.erase(m_SID);
-    }
 }
 
 int Service::runAction(const SoapEncodeInput& args, SoapDecodeOutput& data)
@@ -240,20 +225,33 @@ bool Service::unSubscribe()
         LOGINF("Service::unSubscribe: no lib" << endl);
         return UPNP_E_OUTOF_MEMORY;
     }
-    int ret = UpnpUnSubscribe(lib->getclh(), m_SID);
-    if (ret != UPNP_E_SUCCESS) {
-        LOGERR("Service:unSubscribe: failed: " << ret << " : " <<
-               UpnpGetErrorMessage(ret) << endl);
-        return false;
-    } 
+    if (m_SID[0]) {
+        int ret = UpnpUnSubscribe(lib->getclh(), m_SID);
+        if (ret != UPNP_E_SUCCESS) {
+            LOGERR("Service:unSubscribe: failed: " << ret << " : " <<
+                   UpnpGetErrorMessage(ret) << endl);
+            return false;
+        } 
+        m_SID[0] = 0;
+    }
     return true;
 }
 
 void Service::registerCallback(evtCBFunc c)
 {
+    if (!subscribe()) 
+        return;
     PTMutexLocker lock(cblock);
     LOGDEB1("Service::registerCallback: " << m_SID << endl);
     o_calls[m_SID] = c;
+}
+
+void Service::unregisterCallback()
+{
+    PTMutexLocker lock(cblock);
+    LOGDEB1("Service::unregisterCallback: " << m_SID << endl);
+    o_calls.erase(m_SID);
+    unSubscribe();
 }
 
 std::unordered_map<std::string, evtCBFunc> Service::o_calls;

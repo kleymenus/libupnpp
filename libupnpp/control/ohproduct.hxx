@@ -39,7 +39,7 @@ class OHProduct : public Service {
 public:
 
     OHProduct(const UPnPDeviceDesc& device, const UPnPServiceDesc& service)
-        : Service(device, service, false) {
+        : Service(device, service) {
     }
 
     OHProduct() {}

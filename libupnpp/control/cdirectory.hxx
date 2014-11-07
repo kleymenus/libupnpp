@@ -56,6 +56,7 @@ public:
     /** Construct by copying data from device and service objects. */
     ContentDirectory(const UPnPDeviceDesc& device,
                      const UPnPServiceDesc& service);
+    virtual ~ContentDirectory();
 
     /** An empty one */
     ContentDirectory() : m_rdreqcnt(200), m_serviceKind(CDSKIND_UNKNOWN) {}

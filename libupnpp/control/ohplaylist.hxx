@@ -41,8 +41,11 @@ class OHPlaylist : public Service {
 public:
 
     OHPlaylist(const UPnPDeviceDesc& device, const UPnPServiceDesc& service)
-        : Service(device, service, true) {
+        : Service(device, service) {
         registerCallback();
+    }
+    virtual ~OHPlaylist() {
+        unregisterCallback();
     }
 
     OHPlaylist() {}

@@ -43,6 +43,7 @@ public:
      */
     RenderingControl(const UPnPDeviceDesc& device,
                      const UPnPServiceDesc& service);
+    virtual ~RenderingControl();
 
     RenderingControl() {}
 

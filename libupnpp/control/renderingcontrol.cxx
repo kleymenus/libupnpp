@@ -63,6 +63,11 @@ RenderingControl::RenderingControl(const UPnPDeviceDesc& device,
     registerCallback();
 }
 
+RenderingControl::~RenderingControl()
+{
+    unregisterCallback();
+}
+
 int RenderingControl::devVolTo0100(int dev_vol)
 {
     int volume;

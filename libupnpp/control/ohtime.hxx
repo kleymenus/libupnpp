@@ -41,8 +41,11 @@ class OHTime : public Service {
 public:
 
     OHTime(const UPnPDeviceDesc& device, const UPnPServiceDesc& service)
-        : Service(device, service, true) {
+        : Service(device, service) {
         registerCallback();
+    }
+    virtual ~OHTime() {
+        unregisterCallback();
     }
 
     OHTime() {}
