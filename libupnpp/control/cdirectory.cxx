@@ -34,7 +34,7 @@
 #include "libupnpp/control/description.hxx"  // for UPnPDeviceDesc, etc
 #include "libupnpp/control/discovery.hxx"  // for UPnPDeviceDirectory, etc
 #include "libupnpp/log.hxx"             // for LOGDEB, LOGINF, LOGERR
-#include "libupnpp/soaphelp.hxx"        // for SoapEncodeInput, SoapArgs, etc
+#include "libupnpp/soaphelp.hxx"        // for SoapOutgoing, SoapOutgoing, etc
 #include "libupnpp/upnpp_p.hxx"         // for csvToStrings
 
 using namespace std;
@@ -205,7 +205,7 @@ int ContentDirectory::readDirSlice(const string& objectId, int offset,
 
     // Create request
     // Some devices require an empty SortCriteria, else bad params
-    SoapData args(m_serviceType, "Browse");
+    SoapOutgoing args(m_serviceType, "Browse");
     args("ObjectID", objectId)
         ("BrowseFlag", "BrowseDirectChildren")
         ("Filter", "*")
@@ -213,7 +213,7 @@ int ContentDirectory::readDirSlice(const string& objectId, int offset,
         ("StartingIndex", SoapHelp::i2s(offset))
         ("RequestedCount", SoapHelp::i2s(count));
 
-    SoapArgs data;
+    SoapIncoming data;
     int ret = runAction(args, data);
     if (ret != UPNP_E_SUCCESS) {
         return ret;
@@ -276,7 +276,7 @@ int ContentDirectory::searchSlice(const string& objectId,
            offset << " count " << count << endl);
 
     // Create request
-    SoapData args(m_serviceType, "Search");
+    SoapOutgoing args(m_serviceType, "Search");
     args("ContainerID", objectId)
         ("SearchCriteria", ss)
         ("Filter", "*")
@@ -284,7 +284,7 @@ int ContentDirectory::searchSlice(const string& objectId,
         ("StartingIndex", SoapHelp::i2s(offset))
         ("RequestedCount", SoapHelp::i2s(count)); 
 
-    SoapArgs data;
+    SoapIncoming data;
     int ret = runAction(args, data);
 
     if (ret != UPNP_E_SUCCESS) {
@@ -338,8 +338,8 @@ int ContentDirectory::getSearchCapabilities(set<string>& result)
 {
     LOGDEB("CDService::getSearchCapabilities:" << endl);
 
-    SoapData args(m_serviceType, "GetSearchCapabilities");
-    SoapArgs data;
+    SoapOutgoing args(m_serviceType, "GetSearchCapabilities");
+    SoapIncoming data;
     int ret = runAction(args, data);
     if (ret != UPNP_E_SUCCESS) {
         LOGINF("CDService::getSearchCapa: UpnpSendAction failed: " << 
@@ -372,8 +372,8 @@ int ContentDirectory::getMetadata(const string& objectId,
            m_serviceType << "] udn [" << m_deviceId << "] objId [" <<
            objectId << "]" << endl);
 
-    SoapData args(m_serviceType, "Browse");
-    SoapArgs data;
+    SoapOutgoing args(m_serviceType, "Browse");
+    SoapIncoming data;
     args("ObjectID", objectId)
         ("BrowseFlag", "BrowseMetadata")
         ("Filter", "*")

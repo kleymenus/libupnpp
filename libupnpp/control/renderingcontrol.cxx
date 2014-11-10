@@ -29,7 +29,7 @@
 #include "libupnpp/control/avlastchg.hxx"  // for decodeAVLastChange
 #include "libupnpp/control/service.hxx"  // for VarEventReporter, Service
 #include "libupnpp/log.hxx"             // for LOGERR, LOGDEB1, LOGINF
-#include "libupnpp/soaphelp.hxx"        // for SoapEncodeInput, etc
+#include "libupnpp/soaphelp.hxx"        // for SoapOutgoing, etc
 #include "libupnpp/upnpp_p.hxx"         // for stringToBool
 
 using namespace std;
@@ -140,18 +140,18 @@ int RenderingControl::setVolume(int ivol, const string& channel)
     //      " m_volmin " << m_volmin << " m_volmax " << m_volmax <<
     //      " m_volstep " << m_volstep << " volume " << volume << endl);
 
-    SoapEncodeInput args(m_serviceType, "SetVolume");
+    SoapOutgoing args(m_serviceType, "SetVolume");
     args("InstanceID", "0")("Channel", channel)
         ("DesiredVolume", SoapHelp::i2s(volume));
-    SoapDecodeOutput data;
+    SoapIncoming data;
     return runAction(args, data);
 }
 
 int RenderingControl::getVolume(const string& channel)
 {
-    SoapEncodeInput args(m_serviceType, "GetVolume");
+    SoapOutgoing args(m_serviceType, "GetVolume");
     args("InstanceID", "0")("Channel", channel);
-    SoapDecodeOutput data;
+    SoapIncoming data;
     int ret = runAction(args, data);
     if (ret != UPNP_E_SUCCESS) {
         return ret;
@@ -169,18 +169,18 @@ int RenderingControl::getVolume(const string& channel)
 
 int RenderingControl::setMute(bool mute, const string& channel)
 {
-    SoapEncodeInput args(m_serviceType, "SetMute");
+    SoapOutgoing args(m_serviceType, "SetMute");
     args("InstanceID", "0")("Channel", channel)
         ("DesiredMute", SoapHelp::i2s(mute?1:0));
-    SoapDecodeOutput data;
+    SoapIncoming data;
     return runAction(args, data);
 }
 
 bool RenderingControl::getMute(const string& channel)
 {
-    SoapEncodeInput args(m_serviceType, "GetMute");
+    SoapOutgoing args(m_serviceType, "GetMute");
     args("InstanceID", "0")("Channel", channel);
-    SoapDecodeOutput data;
+    SoapIncoming data;
     int ret = runAction(args, data);
     if (ret != UPNP_E_SUCCESS) {
         return ret;

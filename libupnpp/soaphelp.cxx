@@ -43,44 +43,44 @@ namespace UPnPP {
    This is used both for decoding action requests in the device and responses
    in the control point side
 */
-bool decodeSoapBody(const char *callnm, IXML_Document *actReq, 
-                    SoapDecodeOutput *res)
+bool SoapIncoming::decode(const char *callnm, IXML_Document *actReq)
 {
-    bool ret = false;
+    m_ok = false;
+    m_name = callnm;
+
     IXML_NodeList* nl = 0;
-    IXML_Node* topNode = 
-        ixmlNode_getFirstChild((IXML_Node *)actReq);
+    IXML_Node* topNode = ixmlNode_getFirstChild((IXML_Node *)actReq);
     if (topNode == 0) {
-        LOGERR("decodeSoap: Empty Action request (no topNode) ??" << endl);
-        return false;
+        LOGERR("SoapIncoming: Empty Action request (no topNode) ??" << endl);
+        return m_ok;
     }
-    //LOGDEB("decodeSoap: top node name: " << ixmlNode_getNodeName(topNode) 
+    //LOGDEB("SoapIncoming: top node name: " << ixmlNode_getNodeName(topNode) 
     //       << endl);
 
     nl = ixmlNode_getChildNodes(topNode);
     if (nl == 0) {
         // Ok actually, there are no args
-        return true;
+        return m_ok = true;
     }
-    //LOGDEB("decodeSoap: childnodes list length: " << ixmlNodeList_length(nl)
+    //LOGDEB("SoapIncoming: childnodes list length: " << ixmlNodeList_length(nl)
     // << endl);
 
     for (unsigned long i = 0; i <  ixmlNodeList_length(nl); i++) {
         IXML_Node *cld = ixmlNodeList_item(nl, i);
         if (cld == 0) {
-            LOGDEB1("decodeSoap: got null node  from nodelist at index " <<
-                   i << " ??" << endl);
+            //LOGDEB1("SoapIncoming: got null node  from nodelist at index " <<
+            // i << " ??" << endl);
             // Seems to happen with empty arg list?? This looks like a bug, 
             // should we not get an empty node instead?
             if (i == 0) {
-                ret = true;
+                m_ok = true;
             }
             goto out;
         }
         const char *name = ixmlNode_getNodeName(cld);
         if (name == 0) {
             DOMString pnode = ixmlPrintNode(cld);
-            LOGDEB("decodeSoap: got null name ??:" << pnode << endl);
+            LOGDEB("SoapIncoming: got null name ??:" << pnode << endl);
             ixmlFreeDOMString(pnode);
             goto out;
         }
@@ -92,47 +92,48 @@ bool decodeSoapBody(const char *callnm, IXML_Document *actReq,
         // Can we get an empty value here ?
         if (value == 0)
             value = "";
-        res->args[name] = value;
+        m_args[name] = value;
     }
-    res->name = callnm;
-    ret = true;
+    m_name = callnm;
+    m_ok = true;
+
 out:
     if (nl)
         ixmlNodeList_free(nl);
-    return ret;
+    return m_ok;
 }
 
-bool SoapDecodeOutput::getBool(const char *nm, bool *value) const
+bool SoapIncoming::getBool(const char *nm, bool *value) const
 {
-    map<string, string>::const_iterator it = args.find(nm);
-    if (it == args.end() || it->second.empty()) {
+    map<string, string>::const_iterator it = m_args.find(nm);
+    if (it == m_args.end() || it->second.empty()) {
         return false;
     }
     return stringToBool(it->second, value);
 }
 
-bool SoapDecodeOutput::getInt(const char *nm, int *value) const
+bool SoapIncoming::getInt(const char *nm, int *value) const
 {
-    map<string, string>::const_iterator it = args.find(nm);
-    if (it == args.end() || it->second.empty()) {
+    map<string, string>::const_iterator it = m_args.find(nm);
+    if (it == m_args.end() || it->second.empty()) {
         return false;
     }
     *value = atoi(it->second.c_str());
     return true;
 }
 
-bool SoapDecodeOutput::getString(const char *nm, string *value) const
+bool SoapIncoming::getString(const char *nm, string *value) const
 {
-    map<string, string>::const_iterator it = args.find(nm);
-    if (it == args.end()) {
+    map<string, string>::const_iterator it = m_args.find(nm);
+    if (it == m_args.end()) {
         return false;
     }
     *value = it->second;
     return true;
 }
 
-namespace SoapHelp {
-string xmlQuote(const string& in)
+
+string SoapHelp::xmlQuote(const string& in)
 {
     string out;
     for (unsigned int i = 0; i < in.size(); i++) {
@@ -148,7 +149,7 @@ string xmlQuote(const string& in)
     return out;
 }
 
-string xmlUnquote(const string& in)
+string SoapHelp::xmlUnquote(const string& in)
 {
     string out;
     for (unsigned int i = 0; i < in.size(); i++) {
@@ -186,36 +187,34 @@ string xmlUnquote(const string& in)
 }
 
 // Yes inefficient. whatever...
-string i2s(int val)
+string SoapHelp::i2s(int val)
 {
     char cbuf[30];
     sprintf(cbuf, "%d", val);
     return string(cbuf);
 }
 
-}
-
-IXML_Document *buildSoapBody(const SoapEncodeInput& data, bool isResponse)
+IXML_Document *SoapOutgoing::buildSoapBody(bool isResponse) const
 {
     IXML_Document *doc = ixmlDocument_createDocument();
     if (doc == 0) {
-        cerr << "buildSoapResponse: out of memory" << endl;
+        cerr << "buildSoapBody: out of memory" << endl;
         return 0;
     }
-    string topname = string("u:") + data.name;
+    string topname = string("u:") + m_name;
     if (isResponse)
         topname += "Response";
 
     IXML_Element *top =  
-        ixmlDocument_createElementNS(doc, data.serviceType.c_str(), 
+        ixmlDocument_createElementNS(doc, m_serviceType.c_str(), 
                                      topname.c_str());
-    ixmlElement_setAttribute(top, "xmlns:u", data.serviceType.c_str());
+    ixmlElement_setAttribute(top, "xmlns:u", m_serviceType.c_str());
 
-    for (unsigned i = 0; i < data.data.size(); i++) {
+    for (unsigned i = 0; i < m_data.size(); i++) {
         IXML_Element *elt = 
-            ixmlDocument_createElement(doc, data.data[i].first.c_str());
+            ixmlDocument_createElement(doc, m_data[i].first.c_str());
         IXML_Node* textnode = 
-            ixmlDocument_createTextNode(doc, data.data[i].second.c_str());
+            ixmlDocument_createTextNode(doc, m_data[i].second.c_str());
         ixmlNode_appendChild((IXML_Node*)elt,(IXML_Node*)textnode);
         ixmlNode_appendChild((IXML_Node*)top,(IXML_Node*)elt);
     }

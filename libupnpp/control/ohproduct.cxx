@@ -26,7 +26,7 @@
 
 #include "libupnpp/expatmm.hxx"         // for inputRefXMLParser
 #include "libupnpp/log.hxx"             // for LOGERR
-#include "libupnpp/soaphelp.hxx"        // for SoapDecodeOutput, etc
+#include "libupnpp/soaphelp.hxx"        // for SoapIncoming, etc
 #include "libupnpp/upnpp_p.hxx"         // for stringToBool, trimstring
 
 using namespace std;
@@ -107,8 +107,8 @@ bool OHProduct::isOHPrService(const string& st)
 
 int OHProduct::getSources(vector<Source>& sources)
 {
-    SoapEncodeInput args(m_serviceType, "SourceXml");
-    SoapDecodeOutput data;
+    SoapOutgoing args(m_serviceType, "SourceXml");
+    SoapIncoming data;
     int ret = runAction(args, data);
     if (ret != UPNP_E_SUCCESS) {
         return ret;

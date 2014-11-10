@@ -26,14 +26,14 @@
 #include <vector>                       // for vector
 
 #include "libupnpp/ptmutex.hxx"         // for PTMutexInit
-#include "libupnpp/soaphelp.hxx"        // for SoapArgs, SoapData
+#include "libupnpp/soaphelp.hxx"        // for SoapOutgoing, SoapIncoming
 
 namespace UPnPP { class LibUPnP; }
 namespace UPnPProvider { class UpnpService; }
 
 namespace UPnPProvider {
 
-typedef std::function<int (const UPnPP::SoapArgs&, UPnPP::SoapData&)> soapfun;
+typedef std::function<int (const UPnPP::SoapIncoming&, UPnPP::SoapOutgoing&)> soapfun;
 
 // Definition of a virtual directory entry: data and mime type
 struct VDirContent {

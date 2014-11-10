@@ -27,67 +27,46 @@
 
 namespace UPnPP {
 
-/** Store returned values after decoding the arguments in a SOAP Call */
-class SoapDecodeOutput {
+/** Decode incoming Soap call data */
+class SoapIncoming {
 public:
-    std::string name;
-    std::map<std::string, std::string> args;
+    SoapIncoming() : m_ok(false) {
+    }
 
-    // Utility methods
+    /** Construct by decoding the XML passed from libupnp. Call ok() to check
+     * if this went well.
+     *
+     * @param name We could get this from the XML doc, but get caller
+     *    gets it from libupnp, and passing it is simpler than retrieving
+     *    from the input top node where it has a namespace qualifier.
+     * @param actReq the XML document containing the SOAP data.
+     */
+    bool decode(const char *name, IXML_Document *actReq);
+
+    // Get call name 
+    const std::string& getName() const {
+        return m_name;
+    }
     bool getBool(const char *nm, bool *value) const;
     bool getInt(const char *nm, int *value) const;
     bool getString(const char *nm, std::string *value) const;
-    bool get(const char *nm, bool *value) const {return getBool(nm, value);}
-    bool get(const char *nm, int *value) const {return getInt(nm, value);}
-    bool get(const char *nm, std::string *value) const {return getString(nm, value);}
-};
-
-/** Decode the XML in a Soap call and return the arguments in a SoapArgs 
- * structure.
- *
- * @param name the action name is stored for convenience in the return
- * structure. The caller normally gets it from libupnp, passing it is simpler
- * than retrieving from the input top node where it has a namespace qualifier.
- * @param actReq the XML document containing the SOAP data.
- * @param[output] res the decoded data.
- * @return true for success, false if a decoding error occurred.
- */
-extern bool decodeSoapBody(const char *name, IXML_Document *actReq, 
-                           SoapDecodeOutput *res);
-
-/** Store the values to be encoded in a SOAP response. 
- *
- * The elements in the response must be in a defined order, so we
- * can't use a map as container, we use a vector of pairs instead.
- * The generic UpnpDevice callback fills up name and service type, the
- * device call only needs to fill the data vector.
- */
-class SoapEncodeInput {
-public:
-    SoapEncodeInput() {}
-    SoapEncodeInput(const std::string& st, const std::string& nm)
-        : serviceType(st), name(nm) {}
-    SoapEncodeInput& addarg(const std::string& k, const std::string& v) {
-        data.push_back(std::pair<std::string, std::string>(k, v));
-        return *this;
+    bool get(const char *nm, bool *value) const {
+        return getBool(nm, value);
     }
-    SoapEncodeInput& operator() (const std::string& k, const std::string& v) {
-        data.push_back(std::pair<std::string, std::string>(k, v));
-        return *this;
+    bool get(const char *nm, int *value) const {
+        return getInt(nm, value);
     }
-    static std::string i2s(int val);
-    std::string serviceType;
-    std::string name;
-    std::vector<std::pair<std::string, std::string> > data;
+    bool get(const char *nm, std::string *value) const {
+        return getString(nm, value);
+    }
+    bool ok() {
+        return m_ok;
+    }
+private:
+    std::string m_name;
+    std::map<std::string, std::string> m_args;
+    bool m_ok;
 };
-
-// Until we can fix the device code.
-typedef SoapEncodeInput SoapData;
-typedef SoapDecodeOutput SoapArgs;
-
-/** Build a SOAP response data XML document from a list of values */
-extern IXML_Document *buildSoapBody(const SoapEncodeInput& data, 
-                                    bool isResp = true);
 
 namespace SoapHelp {
     std::string xmlQuote(const std::string& in);
@@ -97,6 +76,48 @@ namespace SoapHelp {
     inline std::string val2s(int val) {return i2s(val);}
     inline std::string val2s(bool val) {return i2s(int(val));}
 };
+
+/** Store the values to be encoded in a SOAP response. 
+ *
+ * The elements in the response must be in a defined order, so we
+ * can't use a map as container, we use a vector of pairs instead.
+ * The generic UpnpDevice callback fills up name and service type, the
+ * device call only needs to fill the data vector.
+ */
+class SoapOutgoing {
+public:
+    SoapOutgoing() {}
+    SoapOutgoing(const std::string& st, const std::string& nm)
+        : m_serviceType(st), m_name(nm) {}
+
+    SoapOutgoing& addarg(const std::string& k, const std::string& v) {
+        m_data.push_back(std::pair<std::string, std::string>(k, v));
+        return *this;
+    }
+
+    SoapOutgoing& operator() (const std::string& k, const std::string& v) {
+        m_data.push_back(std::pair<std::string, std::string>(k, v));
+        return *this;
+    }
+
+    /** Build the SOAP call or response data XML document from the
+       vector of named values */
+    IXML_Document *buildSoapBody(bool isResp = true) const;
+
+    const std::string& getName() const {
+        return m_name;
+    }
+
+    std::string i2s(int val) {
+        return SoapHelp::i2s(val);
+    }
+
+private:
+    std::string m_serviceType;
+    std::string m_name;
+    std::vector<std::pair<std::string, std::string> > m_data;
+};
+
 
 /** Decode UPnP Event data. This is not soap, but it's quite close to
  *  the other code in here so whatever...

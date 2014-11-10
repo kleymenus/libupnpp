@@ -70,7 +70,7 @@ Service::~Service()
     LOGDEB("Service::~Service: " << m_serviceType << " SID " << m_SID << endl);
 }
 
-int Service::runAction(const SoapEncodeInput& args, SoapDecodeOutput& data)
+int Service::runAction(const SoapOutgoing& args, SoapIncoming& data)
 {
     LibUPnP* lib = LibUPnP::getLibUPnP();
     if (lib == 0) {
@@ -83,7 +83,7 @@ int Service::runAction(const SoapEncodeInput& args, SoapDecodeOutput& data)
     IXML_Document *response(0);
     IxmlCleaner cleaner(&request, &response);
 
-    if ((request = buildSoapBody(args, false)) == 0) {
+    if ((request = args.buildSoapBody(false)) == 0) {
         LOGINF("Service::runAction: buildSoapBody failed" << endl);
         return  UPNP_E_OUTOF_MEMORY;
     }
@@ -103,7 +103,7 @@ int Service::runAction(const SoapEncodeInput& args, SoapDecodeOutput& data)
     LOGDEB1("Service::runAction: rslt: [" << 
             ixmlwPrintDoc(response) << "]" << endl);
 
-    if (!decodeSoapBody(args.name.c_str(), response, &data)) {
+    if (!data.decode(args.getName().c_str(), response)) {
         LOGERR("Service::runAction: Could not decode response: " <<
                ixmlwPrintDoc(response) << endl);
         return UPNP_E_BAD_RESPONSE;

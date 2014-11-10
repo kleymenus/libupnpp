@@ -29,7 +29,7 @@
 #include "libupnpp/control/avlastchg.hxx"  // for decodeAVLastChange
 #include "libupnpp/control/cdircontent.hxx"  // for UPnPDirContent, etc
 #include "libupnpp/log.hxx"             // for LOGERR, LOGDEB1, LOGDEB, etc
-#include "libupnpp/soaphelp.hxx"        // for SoapDecodeOutput, etc
+#include "libupnpp/soaphelp.hxx"        // for SoapIncoming, etc
 #include "libupnpp/upnpavutils.hxx"     // for upnpdurationtos, etc
 #include "libupnpp/upnpp_p.hxx"         // for stringuppercmp, etc
 
@@ -207,19 +207,19 @@ void AVTransport::evtCallback(
 int AVTransport::setURI(const string& uri, const string& metadata,
                         int instanceID, bool next)
 {
-    SoapEncodeInput args(m_serviceType, next ? "SetNextAVTransportURI" :
+    SoapOutgoing args(m_serviceType, next ? "SetNextAVTransportURI" :
                          "SetAVTransportURI");
     args("InstanceID", SoapHelp::i2s(instanceID))
         (next ? "NextURI" : "CurrentURI", uri)
         (next ? "NextURIMetaData" : "CurrentURIMetaData", metadata);
 
-    SoapDecodeOutput data;
+    SoapIncoming data;
     return runAction(args, data);
 }
 
 int AVTransport::setPlayMode(PlayMode pm, int instanceID)
 {
-    SoapEncodeInput args(m_serviceType, "SetPlayMode");
+    SoapOutgoing args(m_serviceType, "SetPlayMode");
     string playmode;
     switch (pm) {
     case PM_Normal: playmode = "NORMAL"; break;
@@ -234,15 +234,15 @@ int AVTransport::setPlayMode(PlayMode pm, int instanceID)
     args("InstanceID", SoapHelp::i2s(instanceID))
         ("NewPlayMode", playmode);
 
-    SoapDecodeOutput data;
+    SoapIncoming data;
     return runAction(args, data);
 }
 
 int AVTransport::getMediaInfo(MediaInfo& info, int instanceID)
 {
-    SoapEncodeInput args(m_serviceType, "GetMediaInfo");
+    SoapOutgoing args(m_serviceType, "GetMediaInfo");
     args("InstanceID", SoapHelp::i2s(instanceID));
-    SoapDecodeOutput data;
+    SoapIncoming data;
     int ret = runAction(args, data);
     if (ret != UPNP_E_SUCCESS) {
         return ret;
@@ -270,9 +270,9 @@ int AVTransport::getMediaInfo(MediaInfo& info, int instanceID)
 
 int AVTransport::getTransportInfo(TransportInfo& info, int instanceID)
 {
-    SoapEncodeInput args(m_serviceType, "GetTransportInfo");
+    SoapOutgoing args(m_serviceType, "GetTransportInfo");
     args("InstanceID", SoapHelp::i2s(instanceID));
-    SoapDecodeOutput data;
+    SoapIncoming data;
     int ret = runAction(args, data);
     if (ret != UPNP_E_SUCCESS) {
         return ret;
@@ -288,9 +288,9 @@ int AVTransport::getTransportInfo(TransportInfo& info, int instanceID)
 
 int AVTransport::getPositionInfo(PositionInfo& info, int instanceID)
 {
-    SoapEncodeInput args(m_serviceType, "GetPositionInfo");
+    SoapOutgoing args(m_serviceType, "GetPositionInfo");
     args("InstanceID", SoapHelp::i2s(instanceID));
-    SoapDecodeOutput data;
+    SoapIncoming data;
     int ret = runAction(args, data);
     if (ret != UPNP_E_SUCCESS) {
         return ret;
@@ -320,9 +320,9 @@ int AVTransport::getPositionInfo(PositionInfo& info, int instanceID)
 
 int AVTransport::getDeviceCapabilities(DeviceCapabilities& info, int iID)
 {
-    SoapEncodeInput args(m_serviceType, "GetDeviceCapabilities");
+    SoapOutgoing args(m_serviceType, "GetDeviceCapabilities");
     args("InstanceID", SoapHelp::i2s(iID));
-    SoapDecodeOutput data;
+    SoapIncoming data;
     int ret = runAction(args, data);
     if (ret != UPNP_E_SUCCESS) {
         return ret;
@@ -335,9 +335,9 @@ int AVTransport::getDeviceCapabilities(DeviceCapabilities& info, int iID)
 
 int AVTransport::getTransportSettings(TransportSettings& info, int instanceID)
 {
-    SoapEncodeInput args(m_serviceType, "GetTransportSettings");
+    SoapOutgoing args(m_serviceType, "GetTransportSettings");
     args("InstanceID", SoapHelp::i2s(instanceID));
-    SoapDecodeOutput data;
+    SoapIncoming data;
     int ret = runAction(args, data);
     if (ret != UPNP_E_SUCCESS) {
         return ret;
@@ -351,9 +351,9 @@ int AVTransport::getTransportSettings(TransportSettings& info, int instanceID)
 
 int AVTransport::getCurrentTransportActions(int& iacts, int iID)
 {
-    SoapEncodeInput args(m_serviceType, "GetCurrentTransportActions");
+    SoapOutgoing args(m_serviceType, "GetCurrentTransportActions");
     args("InstanceID", SoapHelp::i2s(iID));
-    SoapDecodeOutput data;
+    SoapIncoming data;
     int ret = runAction(args, data);
     if (ret != UPNP_E_SUCCESS) {
         return ret;
@@ -402,26 +402,26 @@ int AVTransport::CTAStringToBits(const string& actions, int& iacts)
 
 int AVTransport::stop(int instanceID)
 {
-    SoapEncodeInput args(m_serviceType, "Stop");
+    SoapOutgoing args(m_serviceType, "Stop");
     args("InstanceID", SoapHelp::i2s(instanceID));
-    SoapDecodeOutput data;
+    SoapIncoming data;
     return runAction(args, data);
 }
 
 int AVTransport::pause(int instanceID)
 {
-    SoapEncodeInput args(m_serviceType, "Pause");
+    SoapOutgoing args(m_serviceType, "Pause");
     args("InstanceID", SoapHelp::i2s(instanceID));
-    SoapDecodeOutput data;
+    SoapIncoming data;
     return runAction(args, data);
 }
 
 int AVTransport::play(int speed, int instanceID)
 {
-    SoapEncodeInput args(m_serviceType, "Play");
+    SoapOutgoing args(m_serviceType, "Play");
     args("InstanceID", SoapHelp::i2s(instanceID))
         ("Speed", SoapHelp::i2s(speed));
-    SoapDecodeOutput data;
+    SoapIncoming data;
     return runAction(args, data);
 }
 
@@ -442,27 +442,27 @@ int AVTransport::seek(SeekMode mode, int target, int instanceID)
         return UPNP_E_INVALID_PARAM;
     }
 
-    SoapEncodeInput args(m_serviceType, "Seek");
+    SoapOutgoing args(m_serviceType, "Seek");
     args("InstanceID", SoapHelp::i2s(instanceID))
         ("Unit", sm)
         ("Target", value);
-    SoapDecodeOutput data;
+    SoapIncoming data;
     return runAction(args, data);
 }
 
 int AVTransport::next(int instanceID)
 {
-    SoapEncodeInput args(m_serviceType, "Next");
+    SoapOutgoing args(m_serviceType, "Next");
     args("InstanceID", SoapHelp::i2s(instanceID));
-    SoapDecodeOutput data;
+    SoapIncoming data;
     return runAction(args, data);
 }
 
 int AVTransport::previous(int instanceID)
 {
-    SoapEncodeInput args(m_serviceType, "Previous");
+    SoapOutgoing args(m_serviceType, "Previous");
     args("InstanceID", SoapHelp::i2s(instanceID));
-    SoapDecodeOutput data;
+    SoapIncoming data;
     return runAction(args, data);
 }
 

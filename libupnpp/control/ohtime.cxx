@@ -26,7 +26,7 @@
 
 #include "libupnpp/control/service.hxx"  // for VarEventReporter, Service
 #include "libupnpp/log.hxx"             // for LOGERR, LOGDEB1, LOGINF
-#include "libupnpp/soaphelp.hxx"        // for SoapDecodeOutput, etc
+#include "libupnpp/soaphelp.hxx"        // for SoapIncoming, etc
 #include "libupnpp/upnpp_p.hxx"         // for stringToBool
 
 using namespace std;
@@ -77,8 +77,8 @@ void OHTime::registerCallback()
 
 int OHTime::time(Time& out)
 {
-    SoapEncodeInput args(m_serviceType, "Time");
-    SoapDecodeOutput data;
+    SoapOutgoing args(m_serviceType, "Time");
+    SoapIncoming data;
     int ret = runAction(args, data);
     if (ret != UPNP_E_SUCCESS) {
         return ret;

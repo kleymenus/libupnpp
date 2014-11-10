@@ -27,7 +27,7 @@
 
 #include "libupnpp/control/cdircontent.hxx"  // for UPnPDirObject
 #include "libupnpp/log.hxx"             // for LOGERR
-#include "libupnpp/soaphelp.hxx"        // for SoapDecodeOutput, etc
+#include "libupnpp/soaphelp.hxx"        // for SoapIncoming, etc
 
 namespace UPnPClient { class UPnPDeviceDesc; }
 namespace UPnPClient { class UPnPServiceDesc; }
@@ -75,7 +75,7 @@ public:
     /** Return my root device id */
     std::string getDeviceId() const {return m_deviceId;}
 
-    virtual int runAction(const SoapEncodeInput& args, SoapDecodeOutput& data);
+    virtual int runAction(const SoapOutgoing& args, SoapIncoming& data);
 
     virtual VarEventReporter *getReporter()
     {
@@ -123,8 +123,8 @@ protected:
     /** Run trivial action where there are neither input parameters
        nor return data (beyond the status) */
     int runTrivialAction(const std::string& actionName) {
-        SoapEncodeInput args(m_serviceType, actionName);
-        SoapDecodeOutput data;
+        SoapOutgoing args(m_serviceType, actionName);
+        SoapIncoming data;
         return runAction(args, data);
     }
 
@@ -133,8 +133,8 @@ protected:
     template <class T> int runSimpleGet(const std::string& actnm, 
                                         const std::string& valnm,
                                         T *valuep) {
-        SoapEncodeInput args(m_serviceType, actnm);
-        SoapDecodeOutput data;
+        SoapOutgoing args(m_serviceType, actnm);
+        SoapIncoming data;
         int ret = runAction(args, data);
         if (ret != UPNP_E_SUCCESS) {
             return ret;
@@ -151,9 +151,9 @@ protected:
     template <class T> int runSimpleAction(const std::string& actnm, 
                                            const std::string& valnm,
                                            T value) {
-        SoapEncodeInput args(m_serviceType, actnm);
+        SoapOutgoing args(m_serviceType, actnm);
         args(valnm, SoapHelp::val2s(value));
-        SoapDecodeOutput data;
+        SoapIncoming data;
         return runAction(args, data);
     }
 

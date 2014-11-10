@@ -32,7 +32,7 @@
 #include "libupnpp/control/service.hxx"  // for VarEventReporter, Service
 #include "libupnpp/expatmm.hxx"         // for inputRefXMLParser
 #include "libupnpp/log.hxx"             // for LOGERR, LOGDEB1, LOGINF
-#include "libupnpp/soaphelp.hxx"        // for SoapDecodeOutput, etc
+#include "libupnpp/soaphelp.hxx"        // for SoapIncoming, etc
 #include "libupnpp/upnpp_p.hxx"         // for stringToBool
 
 using namespace std;
@@ -191,9 +191,9 @@ int OHPlaylist::id(int *value)
 
 int OHPlaylist::read(int id, std::string* urip, UPnPDirObject *dirent)
 {
-    SoapEncodeInput args(m_serviceType, "Read");
+    SoapOutgoing args(m_serviceType, "Read");
     args("Id", SoapHelp::i2s(id));
-    SoapDecodeOutput data;
+    SoapIncoming data;
     int ret = runAction(args, data);
     if (ret != UPNP_E_SUCCESS) {
         return ret;
@@ -294,9 +294,9 @@ int OHPlaylist::readList(const std::vector<int>& ids,
     }
     entsp->clear();
 
-    SoapEncodeInput args(m_serviceType, "ReadList");
+    SoapOutgoing args(m_serviceType, "ReadList");
     args("IdList", idsparam);
-    SoapDecodeOutput data;
+    SoapIncoming data;
     int ret = runAction(args, data);
     if (ret != UPNP_E_SUCCESS) {
         return ret;
@@ -315,11 +315,11 @@ int OHPlaylist::readList(const std::vector<int>& ids,
 int OHPlaylist::insert(int afterid, const string& uri, const string& didl, 
                        int *nid)
 {
-    SoapEncodeInput args(m_serviceType, "Insert");
+    SoapOutgoing args(m_serviceType, "Insert");
     args("AfterId", SoapHelp::i2s(afterid))
         ("Uri", uri)
         ("Metadata", didl);
-    SoapDecodeOutput data;
+    SoapIncoming data;
     int ret = runAction(args, data);
     if (ret != UPNP_E_SUCCESS) {
         return ret;
@@ -347,8 +347,8 @@ int OHPlaylist::tracksMax(int *valuep)
 
 int OHPlaylist::idArray(vector<int> *ids, int *tokp)
 {
-    SoapEncodeInput args(m_serviceType, "IdArray");
-    SoapDecodeOutput data;
+    SoapOutgoing args(m_serviceType, "IdArray");
+    SoapIncoming data;
     int ret = runAction(args, data);
     if (ret != UPNP_E_SUCCESS) {
         return ret;
@@ -368,9 +368,9 @@ int OHPlaylist::idArray(vector<int> *ids, int *tokp)
 
 int OHPlaylist::idArrayChanged(int token, bool *changed)
 {
-    SoapEncodeInput args(m_serviceType, "IdArrayChanged");
+    SoapOutgoing args(m_serviceType, "IdArrayChanged");
     args("Token", SoapHelp::i2s(token));
-    SoapDecodeOutput data;
+    SoapIncoming data;
     int ret = runAction(args, data);
     if (ret != UPNP_E_SUCCESS) {
         return ret;
@@ -384,8 +384,8 @@ int OHPlaylist::idArrayChanged(int token, bool *changed)
 
 int OHPlaylist::protocolInfo(std::string *proto)
 {
-    SoapEncodeInput args(m_serviceType, "ProtocolInfo");
-    SoapDecodeOutput data;
+    SoapOutgoing args(m_serviceType, "ProtocolInfo");
+    SoapIncoming data;
     int ret = runAction(args, data);
     if (ret != UPNP_E_SUCCESS) {
         return ret;

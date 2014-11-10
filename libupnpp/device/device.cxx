@@ -205,34 +205,34 @@ int UpnpDevice::callBack(Upnp_EventType et, void* evp)
             return UPNP_E_INVALID_PARAM;
         }
 
-        SoapData dt;
+        SoapOutgoing dt(servit->second->getServiceType(), act->ActionName);
         {
             PTMutexLocker lock(m_lock);
-            const string& servicetype = servit->second->getServiceType();
-            auto callit = m_calls.find(string(act->ActionName) + string(act->ServiceID));
+
+            auto callit = 
+                m_calls.find(string(act->ActionName) + string(act->ServiceID));
             if (callit == m_calls.end()) {
-                LOGINF("UpnpDevice: No such action: " << act->ActionName << endl);
+                LOGINF("UpnpDevice: No such action: " << 
+                       act->ActionName << endl);
                 return UPNP_E_INVALID_PARAM;
             }
 
-            SoapArgs sc;
-            if (!decodeSoapBody(act->ActionName, act->ActionRequest, &sc)) {
+            SoapIncoming sc;
+            if (!sc.decode(act->ActionName, act->ActionRequest)) {
                 LOGERR("Error decoding Action call arguments" << endl);
                 return UPNP_E_INVALID_PARAM;
             }
-            dt.name = act->ActionName;
-            dt.serviceType = servicetype;
 
             // Call the action routine
             int ret = callit->second(sc, dt);
             if (ret != UPNP_E_SUCCESS) {
-                LOGERR("UpnpDevice: Action failed: " << sc.name << endl);
+                LOGERR("UpnpDevice: Action failed: " << sc.getName() << endl);
                 return ret;
             }
         }
 
         // Encode result data
-        act->ActionResult = buildSoapBody(dt);
+        act->ActionResult = dt.buildSoapBody();
 
         //LOGDEB("Response data: " << ixmlwPrintDoc(act->ActionResult) << endl);
 
