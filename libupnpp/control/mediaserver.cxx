@@ -75,6 +75,7 @@ bool MediaServer::getDeviceDescs(vector<UPnPDeviceDesc>& devices,
 }
 
 MediaServer::MediaServer(const UPnPDeviceDesc& desc)
+    : Device(desc)
 {
     bool found = false;
     for (auto it = desc.services.begin(); it != desc.services.end(); it++) {
