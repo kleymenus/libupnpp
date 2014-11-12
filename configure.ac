@@ -1,4 +1,4 @@
-AC_INIT([libupnpp], [0.8.7], [jfd@lesbonscomptes.com],
+AC_INIT([libupnpp], [0.9.0], [jfd@lesbonscomptes.com],
              [libupnpp], [http://www.lesbonscomptes.com/upmpdcli])
 
 # Lib version info. See:
