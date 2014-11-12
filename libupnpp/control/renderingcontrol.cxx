@@ -19,6 +19,7 @@
 
 #include <stdlib.h>                     // for atoi
 #include <upnp/upnp.h>                  // for UPNP_E_BAD_RESPONSE, etc
+#include <math.h>
 
 #include <functional>                   // for _Bind, bind, _1
 #include <ostream>                      // for basic_ostream, endl, etc
@@ -68,6 +69,7 @@ RenderingControl::~RenderingControl()
     unregisterCallback();
 }
 
+// Translate device volume to 0-100
 int RenderingControl::devVolTo0100(int dev_vol)
 {
     int volume;
@@ -76,7 +78,7 @@ int RenderingControl::devVolTo0100(int dev_vol)
     if (dev_vol > m_volmax)
         dev_vol = m_volmax;
     if (m_volmin != 0 || m_volmax != 100) {
-        float fact = float(m_volmax - m_volmin) / 100.0;
+        double fact = double(m_volmax - m_volmin) / 100.0;
         if (fact <= 0.0) // ??
             fact = 1.0;
         volume = int((dev_vol - m_volmin) / fact);
@@ -124,6 +126,16 @@ void RenderingControl::registerCallback()
     Service::registerCallback(bind(&RenderingControl::evtCallback, this, _1));
 }
 
+void RenderingControl::setVolParams(int min, int max, int step) 
+{
+    LOGDEB("RenderingControl::setVolParams: min " << min << " max " << max <<
+           " step " << step << endl);
+    m_volmin = min >= 0 ? min : 0;
+    m_volmax = max > 0 ? max : 100;
+    m_volstep = step > 0 ? step : 1;
+}
+
+// Translate 0-100 scale to device scale, then set device volume
 int RenderingControl::setVolume(int ivol, const string& channel)
 {
     // Input is always 0-100. Translate to actual range
@@ -131,18 +143,39 @@ int RenderingControl::setVolume(int ivol, const string& channel)
         ivol = 0;
     if (ivol > 100)
         ivol = 100;
-    int volume = ivol;
-    if (m_volmin != 0 || m_volmax != 100) {
-        float fact = float(m_volmax - m_volmin) / 100.0;
-        volume = m_volmin + int(float(ivol) * fact);
+    // Volumes 0-100
+    int desiredVolume = ivol;
+    int currentVolume = getVolume("Master");
+    if (desiredVolume == currentVolume) {
+        return UPNP_E_SUCCESS;
     }
-    //LOGINF("RenderingControl::setVolume: ivol " << ivol << 
+
+    bool goingUp = desiredVolume > currentVolume;
+    if (m_volmin != 0 || m_volmax != 100) {
+        double fact = double(m_volmax - m_volmin) / 100.0;
+        // Round up when going up, down when going down. Else the user
+        // will be surprised by the GUI control going back if he does
+        // not go a full step
+        desiredVolume = m_volmin + 
+            goingUp ? int(ceil(ivol * fact)) : int(floor(ivol * fact));
+    }
+    // Insure integer number of steps (are there devices where step != 1?)
+    int remainder = (desiredVolume - m_volmin) % m_volstep;
+    if (remainder) {
+        if (goingUp)
+            desiredVolume += m_volstep - remainder;
+        else
+            desiredVolume -= remainder;
+    }
+
+    //LOGDEB("RenderingControl::setVolume: ivol " << ivol << 
     //      " m_volmin " << m_volmin << " m_volmax " << m_volmax <<
-    //      " m_volstep " << m_volstep << " volume " << volume << endl);
+    //      " m_volstep " << m_volstep << " desiredVolume " << 
+    //       desiredVolume << endl);
 
     SoapOutgoing args(m_serviceType, "SetVolume");
     args("InstanceID", "0")("Channel", channel)
-        ("DesiredVolume", SoapHelp::i2s(volume));
+        ("DesiredVolume", SoapHelp::i2s(desiredVolume));
     SoapIncoming data;
     return runAction(args, data);
 }
