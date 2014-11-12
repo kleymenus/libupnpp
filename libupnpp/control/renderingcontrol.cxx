@@ -168,10 +168,10 @@ int RenderingControl::setVolume(int ivol, const string& channel)
             desiredVolume -= remainder;
     }
 
-    //LOGDEB("RenderingControl::setVolume: ivol " << ivol << 
-    //      " m_volmin " << m_volmin << " m_volmax " << m_volmax <<
-    //      " m_volstep " << m_volstep << " desiredVolume " << 
-    //       desiredVolume << endl);
+    LOGDEB("RenderingControl::setVolume: ivol " << ivol << 
+           " m_volmin " << m_volmin << " m_volmax " << m_volmax <<
+           " m_volstep " << m_volstep << " computed desiredVolume " << 
+           desiredVolume << endl);
 
     SoapOutgoing args(m_serviceType, "SetVolume");
     args("InstanceID", "0")("Channel", channel)
