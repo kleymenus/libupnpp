@@ -33,7 +33,8 @@ namespace UPnPProvider { class UpnpService; }
 
 namespace UPnPProvider {
 
-typedef std::function<int (const UPnPP::SoapIncoming&, UPnPP::SoapOutgoing&)> soapfun;
+typedef std::function<int (const UPnPP::SoapIncoming&, UPnPP::SoapOutgoing&)> 
+    soapfun;
 
 // Definition of a virtual directory entry: data and mime type
 struct VDirContent {
@@ -48,14 +49,16 @@ struct VDirContent {
  */
 class UpnpDevice {
 public:
-    /** Construct device object
+    /** Construct device object. Do not start it (this is done by the
+     *   eventloop() call when everything is set up).
      * @param deviceId uuid for device: "uuid:UUIDvalue"
-     * @param files list of name/content pairs to be added to the
-     *   virtual directory root. The file names must match the SCDPURL
-     *   values for the services in the description.xml document. Note that 
-     *   this will have to be changed if we ever want to really
-     *   support multiple devices (will need to use subdirectories or
-     *   find another way to avoid name conflicts).
+     * @param files list of path/content pairs to be added to the
+     *   virtual directory root. The file paths must match the SCDPURL
+     *   values for the services in the description.xml document. 
+     *   The file paths should include a sub-directory component.
+     *   The list must include the description document, but this will not
+     *   be directly served out. Instead a version modified by libupnp 
+     *  (with URLBase added) will be served from '/'.
      */
     UpnpDevice(const std::string& deviceId, 
                const std::unordered_map<std::string, VDirContent>& files);
@@ -93,53 +96,13 @@ public:
     void shouldExit();
 
     /** Check status */
-    bool ok() {return m_lib != 0;}
+    bool ok();
 
 private:
-    const std::string& serviceType(const std::string& serviceId);
-            
-    UPnPP::LibUPnP *m_lib;
-    std::string m_deviceId;
-    // We keep the services in a map for easy access from id and in a
-    // vector for ordered walking while fetching status. Order is
-    // determine by addService() call sequence.
-    std::unordered_map<std::string, UpnpService*> m_servicemap;
-    std::vector<std::string> m_serviceids;
-    std::unordered_map<std::string, soapfun> m_calls;
-    std::unordered_map<std::string, UpnpService*>::const_iterator findService(const std::string& serviceid);
-
-    bool m_needExit;
-    /* My device handle */
-    UpnpDevice_Handle m_dvh;
-
-    /* Lock for device operations. Held during a service callback 
-       Must not be held when using m_dvh to call into libupnp */
-    UPnPP::PTMutexInit m_lock;
-
-    pthread_cond_t m_evloopcond;
-    UPnPP::PTMutexInit m_evlooplock;
-
-    /* Gets called when something needs doing */
-    int callBack(Upnp_EventType et, void* evp);
-
-    /** 
-     * Generate event.
-     *
-     * Called by the device event loop, which polls the services.
-     * Use loopwakeup() to expedite things.
-     */
-    void notifyEvent(const std::string& serviceId,
-                     const std::vector<std::string>& names, 
-                     const std::vector<std::string>& values);
-
-
-    /** Static array of devices for dispatching */
-    static std::unordered_map<std::string, UpnpDevice *> o_devices;
-
-    /* Static callback for libupnp. This looks up the appropriate
-     * device using the device ID (UDN), the calls its callback
-     * method */
-    static int sCallBack(Upnp_EventType et, void* evp, void*);
+    class Internal;
+    Internal *m;
+    class InternalStatic;
+    static InternalStatic *o;
 };
 
 /**
@@ -149,12 +112,9 @@ private:
  */
 class UpnpService {
 public:
-    UpnpService(const std::string& stp,const std::string& sid, UpnpDevice *dev) 
-        : m_serviceType(stp), m_serviceId(sid)
-        {
-            dev->addService(this, sid);
-        }
-    virtual ~UpnpService() {}
+    UpnpService(const std::string& stp,const std::string& sid, UpnpDevice *dev);
+
+    virtual ~UpnpService();
 
     /** 
      * Poll to retrieve evented data changed since last call.
@@ -165,23 +125,16 @@ public:
      * Return name/value pairs for changed variables in the data arrays.
      */
     virtual bool getEventData(bool all, std::vector<std::string>& names, 
-                              std::vector<std::string>& values) 
-        {
-            return true;
-        }
-
-    virtual const std::string& getServiceType() const
-        {
-            return m_serviceType;
-        }
-    virtual const std::string& getServiceId() const
-        {
-            return m_serviceId;
-        }
+                              std::vector<std::string>& values);
+    virtual const std::string& getServiceType() const;
+    virtual const std::string& getServiceId() const;
 
 protected:
     const std::string m_serviceType;
     const std::string m_serviceId;
+private:
+    class Internal;
+    Internal *m;
 };
 
 } // End namespace UPnPProvider

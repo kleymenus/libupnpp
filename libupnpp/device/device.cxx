@@ -29,7 +29,7 @@
 #include "libupnpp/ixmlwrap.hxx"
 #include "libupnpp/upnpplib.hxx"        // for LibUPnP
 #include "libupnpp/upnpputils.hxx"      // for timespec_addnanos
-
+#include "libupnpp/upnpp_p.hxx"
 #include "vdir.hxx"                     // for VirtualDir
 
 using namespace std;
@@ -37,8 +37,55 @@ using namespace UPnPP;
 
 namespace UPnPProvider {
 
-unordered_map<std::string, UpnpDevice *> UpnpDevice::o_devices;
-PTMutexInit o_devices_lock;
+class UpnpDevice::Internal {
+public:
+    Internal() : evloopcond(PTHREAD_COND_INITIALIZER) {}
+    /* Generate event: called by the device event loop, which polls
+     * the services. */
+    void notifyEvent(const std::string& serviceId,
+                     const std::vector<std::string>& names, 
+                     const std::vector<std::string>& values);
+    bool start();
+
+    /* Per-device callback */
+    int callBack(Upnp_EventType et, void* evp);
+
+    UPnPP::LibUPnP *lib;
+    std::string deviceId;
+    // We keep the services in a map for easy access from id and in a
+    // vector for ordered walking while fetching status. Order is
+    // determine by addService() call sequence.
+    std::unordered_map<std::string, UpnpService*> servicemap;
+    std::vector<std::string> serviceids;
+    std::unordered_map<std::string, soapfun> calls;
+    bool needExit;
+    /* My device handle */
+    UpnpDevice_Handle dvh;
+    /* Lock for device operations. Held during a service callback 
+       Must not be held when using dvh to call into libupnp */
+    UPnPP::PTMutexInit devlock;
+    pthread_cond_t evloopcond;
+    UPnPP::PTMutexInit evlooplock;
+    std::unordered_map<std::string, UpnpService*>::const_iterator 
+    findService(const std::string& serviceid);
+};
+
+class UpnpDevice::InternalStatic {
+public:
+    /* Static callback for libupnp. This looks up the appropriate
+     * device using the device ID (UDN), the calls its callback
+     * method */
+    static int sCallBack(Upnp_EventType et, void* evp, void*);
+
+    /** Static array of devices for dispatching */
+    static std::unordered_map<std::string, UpnpDevice *> devices;
+    static PTMutexInit devices_lock;
+};
+
+unordered_map<std::string, UpnpDevice *> 
+UpnpDevice::InternalStatic::devices;
+PTMutexInit UpnpDevice::InternalStatic::devices_lock;
+UpnpDevice::InternalStatic *UpnpDevice::o;
 
 static bool vectorstoargslists(const vector<string>& names, 
                                const vector<string>& values,
@@ -68,31 +115,43 @@ static const int expiretime = 3600;
 
 UpnpDevice::UpnpDevice(const string& deviceId, 
                        const unordered_map<string, VDirContent>& files)
-    : m_deviceId(deviceId), m_needExit(false), m_evloopcond(PTHREAD_COND_INITIALIZER)
 {
-    //LOGDEB("UpnpDevice::UpnpDevice(" << m_deviceId << ")" << endl);
+    if (o == 0 && (o = new InternalStatic()) == 0) {
+        LOGERR("UpnpDevice::UpnpDevice: out of memory" << endl);
+        return;
+    }
+    if ((m = new Internal()) == 0) {
+        LOGERR("UpnpDevice::UpnpDevice: out of memory" << endl);
+        return;
+    }
+    m->deviceId = deviceId;
+    m->needExit = false;
+    //LOGDEB("UpnpDevice::UpnpDevice(" << m->deviceId << ")" << endl);
 
-    m_lib = LibUPnP::getLibUPnP(true);
-    if (!m_lib) {
+    m->lib = LibUPnP::getLibUPnP(true);
+    if (!m->lib) {
         LOGFAT(" Can't get LibUPnP" << endl);
         return;
     }
-    if (!m_lib->ok()) {
+    if (!m->lib->ok()) {
         LOGFAT("Lib init failed: " <<
-               m_lib->errAsString("main", m_lib->getInitError()) << endl);
-        m_lib = 0;
+               m->lib->errAsString("main", m->lib->getInitError()) << endl);
+        m->lib = 0;
         return;
     }
 
     {
-        PTMutexLocker lock(o_devices_lock);
-        if (o_devices.empty()) {
+        PTMutexLocker lock(o->devices_lock);
+        if (o->devices.empty()) {
             // First call: init callbacks
-            m_lib->registerHandler(UPNP_CONTROL_ACTION_REQUEST, sCallBack, this);
-            m_lib->registerHandler(UPNP_CONTROL_GET_VAR_REQUEST, sCallBack, this);
-            m_lib->registerHandler(UPNP_EVENT_SUBSCRIPTION_REQUEST, sCallBack,this);
+            m->lib->registerHandler(UPNP_CONTROL_ACTION_REQUEST, 
+                                    o->sCallBack, this);
+            m->lib->registerHandler(UPNP_CONTROL_GET_VAR_REQUEST, 
+                                    o->sCallBack, this);
+            m->lib->registerHandler(UPNP_EVENT_SUBSCRIPTION_REQUEST, 
+                                    o->sCallBack, this);
         }
-        o_devices[m_deviceId] = this;
+        o->devices[m->deviceId] = this;
     }
 
     VirtualDir* theVD = VirtualDir::getVirtualDir();
@@ -101,44 +160,56 @@ UpnpDevice::UpnpDevice(const string& deviceId,
         return;
     }
 
-    unordered_map<string, VDirContent>::const_iterator it = 
-        files.find("description.xml");
-    if (it == files.end()) {
+    string description;
+    for (auto it = files.begin(); it != files.end(); it++) {
+        if (!path_getsimple(it->first).compare("description.xml")) {
+            description = it->second.content;
+            break;
+        }
+    }
+            
+    if (description.empty()) {
         LOGFAT("UpnpDevice::UpnpDevice: no description.xml found in xmlfiles"
                << endl);
         return;
     } 
 
-    const string& description = it->second.content;
-
-    for (it = files.begin(); it != files.end(); it++) {
-        theVD->addFile("/", it->first, it->second.content, it->second.mimetype);
+    for (auto it = files.begin(); it != files.end(); it++) {
+        string dir = path_getfather(it->first);
+        string fn = path_getsimple(it->first);
+        // description.xml will be served by libupnp from / after inserting
+        // the URLBase element (which it knows how to compute).
+        if (fn.compare("description.xml")) {
+            theVD->addFile(dir, fn, it->second.content, it->second.mimetype);
+        }
     }
 
-    // Start up the web server for sending out description files
+    // Start up the web server for sending out description files. This also
+    // calls registerRootDevice()
     int ret;
-    if ((ret = m_lib->setupWebServer(description, &m_dvh)) != 0) {
+    if ((ret = m->lib->setupWebServer(description, &m->dvh)) != 0) {
         LOGFAT("UpnpDevice: libupnp can't start service. Err " << ret << endl);
     }
 
-    if ((ret = UpnpSendAdvertisement(m_dvh, expiretime)) != 0) {
-        LOGERR(m_lib->errAsString("UpnpDevice: UpnpSendAdvertisement", ret)
+    if ((ret = UpnpSendAdvertisement(m->dvh, expiretime)) != 0) {
+        LOGERR(m->lib->errAsString("UpnpDevice: UpnpSendAdvertisement", ret)
                << endl);
     }
 }
 
 UpnpDevice::~UpnpDevice()
 {
-    UpnpUnRegisterRootDevice(m_dvh);
+    UpnpUnRegisterRootDevice(m->dvh);
 
-    PTMutexLocker lock(o_devices_lock);
-    unordered_map<std::string, UpnpDevice *>::iterator it = o_devices.find(m_deviceId);
-    if (it != o_devices.end())
-        o_devices.erase(it);
+    PTMutexLocker lock(o->devices_lock);
+    unordered_map<std::string, UpnpDevice *>::iterator it = o->devices.find(m->deviceId);
+    if (it != o->devices.end())
+        o->devices.erase(it);
 }
 
 // Main libupnp callback: use the device id and call the right device
-int UpnpDevice::sCallBack(Upnp_EventType et, void* evp, void* tok)
+int UpnpDevice::InternalStatic::sCallBack(Upnp_EventType et, void* evp, 
+                                            void* tok)
 {
     //LOGDEB("UpnpDevice::sCallBack" << endl);
 
@@ -164,11 +235,11 @@ int UpnpDevice::sCallBack(Upnp_EventType et, void* evp, void* tok)
 
     unordered_map<std::string, UpnpDevice *>::iterator it;
     {
-        PTMutexLocker lock(o_devices_lock);
+        PTMutexLocker lock(o->devices_lock);
 
-        it = o_devices.find(deviceid);
+        it = o->devices.find(deviceid);
 
-        if (it == o_devices.end()) {
+        if (it == o->devices.end()) {
             LOGERR("UpnpDevice::sCallBack: Device not found: [" << 
                    deviceid << "]" << endl);
             return UPNP_E_INVALID_PARAM;
@@ -177,20 +248,26 @@ int UpnpDevice::sCallBack(Upnp_EventType et, void* evp, void* tok)
 
     // LOGDEB("UpnpDevice::sCallBack: device found: [" << it->second 
     // << "]" << endl);
-    return (it->second)->callBack(et, evp);
+    return (it->second)->m->callBack(et, evp);
 }
 
-unordered_map<string, UpnpService*>::const_iterator UpnpDevice::findService(const string& serviceid)
+bool UpnpDevice::ok()
 {
-    PTMutexLocker lock(m_lock);
-    auto servit = m_servicemap.find(serviceid);
-    if (servit == m_servicemap.end()) {
+     return o && m && m->lib != 0;
+}
+
+unordered_map<string, UpnpService*>::const_iterator 
+UpnpDevice::Internal::findService(const string& serviceid)
+{
+    PTMutexLocker lock(devlock);
+    auto servit = servicemap.find(serviceid);
+    if (servit == servicemap.end()) {
         LOGERR("UpnpDevice: Bad serviceID: " << serviceid << endl);
     }
     return servit;
 }
 
-int UpnpDevice::callBack(Upnp_EventType et, void* evp)
+int UpnpDevice::Internal::callBack(Upnp_EventType et, void* evp)
 {
     switch (et) {
     case UPNP_CONTROL_ACTION_REQUEST:
@@ -201,17 +278,17 @@ int UpnpDevice::callBack(Upnp_EventType et, void* evp)
                ". Params: " << ixmlwPrintDoc(act->ActionRequest) << endl);
 
         auto servit = findService(act->ServiceID);
-        if (servit == m_servicemap.end()) {
+        if (servit == servicemap.end()) {
             return UPNP_E_INVALID_PARAM;
         }
 
         SoapOutgoing dt(servit->second->getServiceType(), act->ActionName);
         {
-            PTMutexLocker lock(m_lock);
+            PTMutexLocker lock(devlock);
 
             auto callit = 
-                m_calls.find(string(act->ActionName) + string(act->ServiceID));
-            if (callit == m_calls.end()) {
+                calls.find(string(act->ActionName) + string(act->ServiceID));
+            if (callit == calls.end()) {
                 LOGINF("UpnpDevice: No such action: " << 
                        act->ActionName << endl);
                 return UPNP_E_INVALID_PARAM;
@@ -257,13 +334,13 @@ int UpnpDevice::callBack(Upnp_EventType et, void* evp)
         LOGDEB("UPNP_EVENT_SUBSCRIPTION_REQUEST: " << act->ServiceId << endl);
 
         auto servit = findService(act->ServiceId);
-        if (servit == m_servicemap.end()) {
+        if (servit == servicemap.end()) {
             return UPNP_E_INVALID_PARAM;
         }
 
         vector<string> names, values, qvalues;
         {
-            PTMutexLocker lock(m_lock);
+            PTMutexLocker lock(devlock);
             if (!servit->second->getEventData(true, names, values)) {
                 break;
             }
@@ -272,11 +349,11 @@ int UpnpDevice::callBack(Upnp_EventType et, void* evp)
         vector<const char *> cnames, cvalues;
         vectorstoargslists(names, values, qvalues, cnames, cvalues);
         int ret = 
-            UpnpAcceptSubscription(m_dvh, act->UDN, act->ServiceId,
+            UpnpAcceptSubscription(dvh, act->UDN, act->ServiceId,
                                    &cnames[0], &cvalues[0],
                                    int(cnames.size()), act->Sid);
         if (ret != UPNP_E_SUCCESS) {
-            LOGERR(m_lib->errAsString(
+            LOGERR(lib->errAsString(
                        "UpnpDevice::callBack: UpnpAcceptSubscription", ret) <<
                    endl);
         }
@@ -295,23 +372,23 @@ int UpnpDevice::callBack(Upnp_EventType et, void* evp)
 
 void UpnpDevice::addService(UpnpService *serv, const std::string& serviceId)
 {
-    PTMutexLocker lock(m_lock);
-    m_servicemap[serviceId] = serv;
-    m_serviceids.push_back(serviceId);
+    PTMutexLocker lock(m->devlock);
+    m->servicemap[serviceId] = serv;
+    m->serviceids.push_back(serviceId);
 }
 
 void UpnpDevice::addActionMapping(const UpnpService* serv,
                                   const std::string& actName,
                                   soapfun fun)
 {
-    PTMutexLocker lock(m_lock);
+    PTMutexLocker lock(m->devlock);
     // LOGDEB("UpnpDevice::addActionMapping:" << actName << endl);
-    m_calls[actName + serv->getServiceId()] = fun;
+    m->calls[actName + serv->getServiceId()] = fun;
 }
 
-void UpnpDevice::notifyEvent(const string& serviceId,
-                             const vector<string>& names, 
-                             const vector<string>& values)
+void UpnpDevice::Internal::notifyEvent(const string& serviceId,
+                                         const vector<string>& names, 
+                                         const vector<string>& values)
 {
     LOGDEB1("UpnpDevice::notifyEvent " << serviceId << " " <<
            (names.empty()?"Empty names??":names[0]) << endl);
@@ -321,11 +398,11 @@ void UpnpDevice::notifyEvent(const string& serviceId,
     vector<string> qvalues;
     vectorstoargslists(names, values, qvalues, cnames, cvalues);
 
-    int ret = UpnpNotify(m_dvh, m_deviceId.c_str(), 
+    int ret = UpnpNotify(dvh, deviceId.c_str(), 
                          serviceId.c_str(), &cnames[0], &cvalues[0],
                          int(cnames.size()));
     if (ret != UPNP_E_SUCCESS) {
-        LOGERR(m_lib->errAsString("UpnpDevice::notifyEvent", ret) << endl);
+        LOGERR(lib->errAsString("UpnpDevice::notifyEvent", ret) << endl);
     }
 }
 
@@ -376,10 +453,10 @@ void UpnpDevice::eventloop()
         //LOGDEB("eventloop: now " << time(0) << " wkup at "<< 
         //    wkuptime.tv_sec << " S " << wkuptime.tv_nsec << " ns" << endl);
 
-        PTMutexLocker lock(m_evlooplock);
-        int err = pthread_cond_timedwait(&m_evloopcond, lock.getMutex(), 
+        PTMutexLocker lock(m->evlooplock);
+        int err = pthread_cond_timedwait(&m->evloopcond, lock.getMutex(), 
                                          &wkuptime);
-        if (m_needExit) {
+        if (m->needExit) {
             break;
         } else if (err && err != ETIMEDOUT) {
             LOGINF("UpnpDevice:eventloop: wait errno " << errno << endl);
@@ -415,23 +492,23 @@ void UpnpDevice::eventloop()
         bool all = count && ((count % nloopstofull) == 0);
         //LOGDEB("UpnpDevice::eventloop count "<<count<<" all "<<all<<endl);
 
-        // We can't lock m_lock around the loop because we don't want
+        // We can't lock devlock around the loop because we don't want
         // to hold id when calling notifyEvent() (which calls
         // libupnp). This means that we should have a separate lock
         // for the services arrays. This would only be useful during
         // startup, while we add services, but the event loop is the
         // last call the main program will make after adding the
         // services, so locking does not seem necessary
-        for (auto it = m_serviceids.begin(); it != m_serviceids.end(); it++) {
+        for (auto it = m->serviceids.begin(); it != m->serviceids.end(); it++) {
             vector<string> names, values;
             {
-                PTMutexLocker lock(m_lock);
-                UpnpService* serv = m_servicemap[*it];
+                PTMutexLocker lock(m->devlock);
+                UpnpService* serv = m->servicemap[*it];
                 if (!serv->getEventData(all, names, values) || names.empty()) {
                     continue;
                 }
             }
-            notifyEvent(*it, names, values);
+            m->notifyEvent(*it, names, values);
         }
     }
 }
@@ -446,13 +523,43 @@ void UpnpDevice::eventloop()
 // -> deadlock
 void UpnpDevice::loopWakeup()
 {
-    pthread_cond_broadcast(&m_evloopcond);
+    pthread_cond_broadcast(&m->evloopcond);
 }
 
 void UpnpDevice::shouldExit()
 {
-    m_needExit = true;
-    pthread_cond_broadcast(&m_evloopcond);
+    m->needExit = true;
+    pthread_cond_broadcast(&m->evloopcond);
 }
+
+
+
+UpnpService::UpnpService(const std::string& stp,
+                         const std::string& sid, UpnpDevice *dev)
+    : m_serviceType(stp), m_serviceId(sid), m(0)
+{
+    dev->addService(this, sid);
+}
+
+UpnpService::~UpnpService() 
+{
+}
+
+bool UpnpService::getEventData(bool all, std::vector<std::string>& names, 
+                               std::vector<std::string>& values) 
+{
+    return true;
+}
+
+const std::string& UpnpService::getServiceType() const 
+{
+    return m_serviceType;
+}
+
+const std::string& UpnpService::getServiceId() const 
+{
+    return m_serviceId;
+}
+
 
 }// End namespace UPnPProvider

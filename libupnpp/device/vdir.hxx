@@ -19,7 +19,8 @@
 #define _VDIR_H_X_INCLUDED_
 
 /** An easy libupnp virtual directory handler, based on stl
-    maps and strings.
+    maps and strings. This is not part of the library interface, but for
+    internal use by device.cxx
 
     As libupnp only lets us defines the api calls (open/read/etc.),
     without any data cookie, this has to be a global singleton object.
