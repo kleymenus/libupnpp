@@ -47,11 +47,16 @@ public:
                      const std::vector<std::string>& values);
     bool start();
 
+    std::unordered_map<std::string, UpnpService*>::const_iterator 
+        findService(const std::string& serviceid);
+
     /* Per-device callback */
     int callBack(Upnp_EventType et, void* evp);
 
     UPnPP::LibUPnP *lib;
     std::string deviceId;
+    std::string description;
+
     // We keep the services in a map for easy access from id and in a
     // vector for ordered walking while fetching status. Order is
     // determine by addService() call sequence.
@@ -66,8 +71,6 @@ public:
     UPnPP::PTMutexInit devlock;
     pthread_cond_t evloopcond;
     UPnPP::PTMutexInit evlooplock;
-    std::unordered_map<std::string, UpnpService*>::const_iterator 
-    findService(const std::string& serviceid);
 };
 
 class UpnpDevice::InternalStatic {
@@ -160,15 +163,14 @@ UpnpDevice::UpnpDevice(const string& deviceId,
         return;
     }
 
-    string description;
     for (auto it = files.begin(); it != files.end(); it++) {
         if (!path_getsimple(it->first).compare("description.xml")) {
-            description = it->second.content;
+            m->description = it->second.content;
             break;
         }
     }
             
-    if (description.empty()) {
+    if (m->description.empty()) {
         LOGFAT("UpnpDevice::UpnpDevice: no description.xml found in xmlfiles"
                << endl);
         return;
@@ -183,18 +185,6 @@ UpnpDevice::UpnpDevice(const string& deviceId,
             theVD->addFile(dir, fn, it->second.content, it->second.mimetype);
         }
     }
-
-    // Start up the web server for sending out description files. This also
-    // calls registerRootDevice()
-    int ret;
-    if ((ret = m->lib->setupWebServer(description, &m->dvh)) != 0) {
-        LOGFAT("UpnpDevice: libupnp can't start service. Err " << ret << endl);
-    }
-
-    if ((ret = UpnpSendAdvertisement(m->dvh, expiretime)) != 0) {
-        LOGERR(m->lib->errAsString("UpnpDevice: UpnpSendAdvertisement", ret)
-               << endl);
-    }
 }
 
 UpnpDevice::~UpnpDevice()
@@ -205,6 +195,24 @@ UpnpDevice::~UpnpDevice()
     unordered_map<std::string, UpnpDevice *>::iterator it = o->devices.find(m->deviceId);
     if (it != o->devices.end())
         o->devices.erase(it);
+}
+
+bool UpnpDevice::Internal::start()
+{
+    // Start up the web server for sending out description files. This also
+    // calls registerRootDevice()
+    int ret;
+    if ((ret = lib->setupWebServer(description, &dvh)) != 0) {
+        LOGFAT("UpnpDevice: libupnp can't start service. Err " << ret << endl);
+        return false;
+    }
+
+    if ((ret = UpnpSendAdvertisement(dvh, expiretime)) != 0) {
+        LOGERR(lib->errAsString("UpnpDevice: UpnpSendAdvertisement", ret)
+               << endl);
+        return false;
+    }
+    return true;
 }
 
 // Main libupnp callback: use the device id and call the right device
@@ -432,6 +440,11 @@ int clock_gettime(int /*clk_id*/, struct timespec* t) {
 // by the main thread.
 void UpnpDevice::eventloop()
 {
+    if (!m->start()) {
+        LOGERR("Device would not start" << endl);
+        return;
+    }
+
     int count = 0;
     // Polling the services every 1 S
     const int loopwait_ms = 1000; 
