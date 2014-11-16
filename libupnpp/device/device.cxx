@@ -180,7 +180,9 @@ UpnpDevice::UpnpDevice(const string& deviceId,
         string dir = path_getfather(it->first);
         string fn = path_getsimple(it->first);
         // description.xml will be served by libupnp from / after inserting
-        // the URLBase element (which it knows how to compute).
+        // the URLBase element (which it knows how to compute), so we make
+        // sure not to serve our version from the virtual dir (if it is in /,
+        // it would override libupnp's).
         if (fn.compare("description.xml")) {
             theVD->addFile(dir, fn, it->second.content, it->second.mimetype);
         }
