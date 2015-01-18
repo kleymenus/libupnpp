@@ -45,6 +45,9 @@ bool MediaRenderer::isMRDevice(const string& st)
     return !DType.compare(0, sz, st, 0, sz);
 }
 
+// Look at all service descriptions and store parent devices for
+// either UPnP RenderingControl or OpenHome Product. Some entries will
+// be set multiple times, which does not matter
 static bool MDAccum(unordered_map<string, UPnPDeviceDesc>* out,
                     const string& friendlyName,
                     const UPnPDeviceDesc& device, 
@@ -52,9 +55,11 @@ static bool MDAccum(unordered_map<string, UPnPDeviceDesc>* out,
 {
     //LOGDEB("MDAccum: friendlyname: " << friendlyName << 
     //    " dev friendlyName " << device.friendlyName << endl);
-    if (RenderingControl::isRDCService(service.serviceType) &&
-        (friendlyName.empty() ? true : 
-         !friendlyName.compare(device.friendlyName))) {
+    if (
+        (RenderingControl::isRDCService(service.serviceType) ||
+         OHProduct::isOHPrService(service.serviceType))
+        &&
+        (friendlyName.empty() || !friendlyName.compare(device.friendlyName))) {
         //LOGDEB("MDAccum setting " << device.UDN << endl);
         (*out)[device.UDN] = device;
     }
@@ -97,7 +102,7 @@ RDCH MediaRenderer::rdc()
         }
     }
     if (!rdcl)
-        LOGERR("MediaRenderer::rdc: RenderingControl service not found" << endl);
+        LOGDEB("MediaRenderer: RenderingControl service not found" << endl);
     m_rdc = rdcl;
     return rdcl;
 }
@@ -114,7 +119,7 @@ AVTH MediaRenderer::avt()
         }
     }
     if (!avtl)
-        LOGERR("MediaRenderer::avt: AVTransport service not found" << endl);
+        LOGDEB("MediaRenderer: AVTransport service not found" << endl);
     m_avt = avtl;
     return avtl;
 }
@@ -131,7 +136,7 @@ OHPRH MediaRenderer::ohpr()
         }
     }
     if (!ohprl)
-        LOGINF("MediaRenderer::ohpr: OHProduct service not found" << endl);
+        LOGDEB("MediaRenderer: OHProduct service not found" << endl);
     m_ohpr = ohprl;
     return ohprl;
 }
@@ -148,7 +153,7 @@ OHPLH MediaRenderer::ohpl()
         }
     }
     if (!ohpll)
-        LOGINF("MediaRenderer::ohpl: OHPlaylist service not found" << endl);
+        LOGDEB("MediaRenderer: OHPlaylist service not found" << endl);
     m_ohpl = ohpll;
     return ohpll;
 }
@@ -165,9 +170,26 @@ OHTMH MediaRenderer::ohtm()
         }
     }
     if (!ohtml)
-        LOGINF("MediaRenderer::ohtm: OHTime service not found" << endl);
+        LOGDEB("MediaRenderer: OHTime service not found" << endl);
     m_ohtm = ohtml;
     return ohtml;
+}
+
+OHVLH MediaRenderer::ohvl() 
+{
+    auto ohvll = m_ohvl.lock();
+    if (ohvll)
+        return ohvll;
+    for (auto it = m_desc.services.begin(); it != m_desc.services.end(); it++) {
+        if (OHVolume::isOHVLService(it->serviceType)) {
+            ohvll = OHVLH(new OHVolume(m_desc, *it));
+            break;
+        }
+    }
+    if (!ohvll)
+        LOGDEB("MediaRenderer: OHVolume service not found" << endl);
+    m_ohvl = ohvll;
+    return ohvll;
 }
 
 }

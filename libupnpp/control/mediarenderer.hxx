@@ -26,6 +26,7 @@
 #include "libupnpp/control/ohplaylist.hxx"  // for OHPLH
 #include "libupnpp/control/ohproduct.hxx"  // for OHPRH
 #include "libupnpp/control/ohtime.hxx"
+#include "libupnpp/control/ohvolume.hxx"
 #include "libupnpp/control/renderingcontrol.hxx"  // for RDCH
 
 namespace UPnPClient {
@@ -37,16 +38,24 @@ typedef std::shared_ptr<MediaRenderer> MRDH;
 
 class MediaRenderer : public Device {
 public:
+    /** Build from device description */
     MediaRenderer(const UPnPDeviceDesc& desc);
 
+    /** Methods returning handles to the different services. May return null
+        for unimplemented services. */
     RDCH rdc();
     AVTH avt();
     OHPRH ohpr();
     OHPLH ohpl();
     OHTMH ohtm();
+    OHVLH ohvl();
 
     bool hasOpenHome();
 
+    /** Retrieve device descriptions for devices looking like media
+     * renderers. We return all devices implementing
+     * either RenderingControl or OHProduct.
+     */
     static bool getDeviceDescs(std::vector<UPnPDeviceDesc>& devices,
                                const std::string& friendlyName = "");
     static bool isMRDevice(const std::string& devicetype);
@@ -57,6 +66,7 @@ protected:
     std::weak_ptr<OHProduct> m_ohpr;
     std::weak_ptr<OHPlaylist> m_ohpl;
     std::weak_ptr<OHTime> m_ohtm;
+    std::weak_ptr<OHVolume> m_ohvl;
 
     static const std::string DType;
 };
