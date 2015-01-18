@@ -22,7 +22,6 @@
 #include <unordered_map>                // for unordered_map
 #include <vector>                       // for vector
 
-#include "cdircontent.hxx"              // for UPnPDirObject
 #include "service.hxx"                  // for Service
 
 namespace UPnPClient { class OHTime; }
