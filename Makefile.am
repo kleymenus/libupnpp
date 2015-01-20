@@ -18,6 +18,7 @@ libupnpp_la_SOURCES = \
     libupnpp/control/description.cxx \
     libupnpp/control/description.hxx \
     libupnpp/control/device.hxx \
+    libupnpp/control/device.cxx \
     libupnpp/control/discovery.cxx \
     libupnpp/control/discovery.hxx \
     libupnpp/control/httpdownload.cxx \
@@ -87,10 +88,7 @@ nobase_include_HEADERS = \
     libupnpp/upnpplib.hxx \
     libupnpp/upnpputils.hxx
 
-# We include both -release and -version-info: for now the lib interface is
-# unstable and dependant packages should be updated every time the lib
-# release changes. Once things are stabilized, we should drop the -release flag
-libupnpp_la_LDFLAGS = -release $(VERSION) -version-info $(VERSION_INFO)
+libupnpp_la_LDFLAGS = -version-info $(VERSION_INFO)
 
 libupnpp_la_LIBADD = $(LIBUPNPP_LIBS)
 

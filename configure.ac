@@ -1,14 +1,27 @@
-AC_INIT([libupnpp], [0.9.1], [jfd@lesbonscomptes.com],
+
+# Software version. There is no direct link with the library version_info
+# except that we sort or promise that no api and abi incompatibilities
+# occur with revision (3rd number) changes.
+AC_INIT([libupnpp], [0.10.0], [jfd@lesbonscomptes.com],
              [libupnpp], [http://www.lesbonscomptes.com/upmpdcli])
 
 # Lib version info. See:
-#   https://www.sourceware.org/autobook/autobook/autobook_91.html#SEC91
-#   https://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html
-# The Makefile uses both -release and -version-info: for now the lib
-# interface is unstable and dependant packages should be updated every time
-# the lib release changes. Once things are stabilized, we should drop the
-# -release flag. Lib names for now: libupnpp-x.y.z.so.0.0.0
-VERSION_INFO=0:0:0
+# https://www.sourceware.org/autobook/autobook/autobook_91.html#SEC91
+# https://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html
+#
+# - Start with version information of ‘0:0:0’ for each libtool library.
+# - Update the version information only immediately before a public release
+# - If the library source code has changed at all since the last update, then
+#   increment revision (‘c:r:a’ becomes ‘c:r+1:a’).
+# - If any interfaces have been added, removed, or changed since the last
+#   update, increment current, and set revision to 0.
+# - If any interfaces have been added since the last public release, then
+#   increment age.
+# - If any interfaces have been removed or changed since the last public
+#   release, then set age to 0 AND CHANGE PACKAGE NAME. 
+# libupnpp packages are named libupnppX where X is the c number above. This
+# allows packages for multiple incompatible ABIs to be installed
+VERSION_INFO=1:0:0
 
 AC_PREREQ([2.53])
 AC_CONFIG_SRCDIR([libupnpp/upnpplib.hxx])
