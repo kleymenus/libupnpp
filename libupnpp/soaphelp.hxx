@@ -30,8 +30,8 @@ namespace UPnPP {
 /** Decode incoming Soap call data */
 class SoapIncoming {
 public:
-    SoapIncoming() : m_ok(false) {
-    }
+    SoapIncoming();
+    ~SoapIncoming();
 
     /** Construct by decoding the XML passed from libupnp. Call ok() to check
      * if this went well.
@@ -43,29 +43,19 @@ public:
      */
     bool decode(const char *name, IXML_Document *actReq);
 
-    // Get call name 
-    const std::string& getName() const {
-        return m_name;
-    }
-    bool getBool(const char *nm, bool *value) const;
-    bool getInt(const char *nm, int *value) const;
-    bool getString(const char *nm, std::string *value) const;
-    bool get(const char *nm, bool *value) const {
-        return getBool(nm, value);
-    }
-    bool get(const char *nm, int *value) const {
-        return getInt(nm, value);
-    }
-    bool get(const char *nm, std::string *value) const {
-        return getString(nm, value);
-    }
-    bool ok() {
-        return m_ok;
-    }
+    /** Get action name */
+    const std::string& getName() const;
+
+    /** Get boolean parameter value */
+    bool get(const char *nm, bool *value) const;
+    /** Get integer parameter value */
+    bool get(const char *nm, int *value) const;
+    /** Get string parameter value */
+    bool get(const char *nm, std::string *value) const;
+
 private:
-    std::string m_name;
-    std::map<std::string, std::string> m_args;
-    bool m_ok;
+    class Internal;
+    Internal *m;
 };
 
 namespace SoapHelp {
@@ -86,36 +76,23 @@ namespace SoapHelp {
  */
 class SoapOutgoing {
 public:
-    SoapOutgoing() {}
-    SoapOutgoing(const std::string& st, const std::string& nm)
-        : m_serviceType(st), m_name(nm) {}
+    SoapOutgoing();
+    SoapOutgoing(const std::string& st, const std::string& nm);
+    ~SoapOutgoing();
 
-    SoapOutgoing& addarg(const std::string& k, const std::string& v) {
-        m_data.push_back(std::pair<std::string, std::string>(k, v));
-        return *this;
-    }
+    SoapOutgoing& addarg(const std::string& k, const std::string& v);
 
-    SoapOutgoing& operator() (const std::string& k, const std::string& v) {
-        m_data.push_back(std::pair<std::string, std::string>(k, v));
-        return *this;
-    }
+    SoapOutgoing& operator() (const std::string& k, const std::string& v);
 
     /** Build the SOAP call or response data XML document from the
        vector of named values */
     IXML_Document *buildSoapBody(bool isResp = true) const;
 
-    const std::string& getName() const {
-        return m_name;
-    }
-
-    std::string i2s(int val) {
-        return SoapHelp::i2s(val);
-    }
+    const std::string& getName() const;
 
 private:
-    std::string m_serviceType;
-    std::string m_name;
-    std::vector<std::pair<std::string, std::string> > m_data;
+    class Internal;
+    Internal *m;
 };
 
 

@@ -32,7 +32,7 @@
 namespace UPnPClient { class UPnPDeviceDesc; }
 namespace UPnPClient { class UPnPServiceDesc; }
 
-using namespace UPnPP;
+//using namespace UPnPP;
 
 namespace UPnPClient {
 
@@ -65,27 +65,38 @@ public:
     Service(const UPnPDeviceDesc& device, const UPnPServiceDesc& service); 
 
     /** An empty one */
-    Service() : m_reporter(0) {}
+    Service();
 
     virtual ~Service();
 
-    /** Retrieve my root device "friendly name". */
-    std::string getFriendlyName() const {return m_friendlyName;}
+    const std::string& getFriendlyName() const;
+    const std::string& getDeviceId() const;
+    const std::string& getServiceType() const;
+    const std::string& getActionURL() const;
+    const std::string& getModelName() const;
+    const std::string& getManufacturer() const;
 
-    /** Return my root device id */
-    std::string getDeviceId() const {return m_deviceId;}
+    virtual int runAction(const UPnPP::SoapOutgoing& args, 
+                          UPnPP::SoapIncoming& data);
 
-    virtual int runAction(const SoapOutgoing& args, SoapIncoming& data);
+    /** Run trivial action where there are neither input parameters
+       nor return data (beyond the status) */
+    int runTrivialAction(const std::string& actionName);
 
-    virtual VarEventReporter *getReporter()
-    {
-        return m_reporter;
-    }
+    /* Run action where there are no input parameters and a single
+       named value is to be retrieved from the result */
+    template <class T> int runSimpleGet(const std::string& actnm, 
+                                        const std::string& valnm,
+                                        T *valuep);
 
-    virtual void installReporter(VarEventReporter* reporter)
-    {
-        m_reporter = reporter;
-    }
+    /* Run action with a single input parameter and no return data */
+    template <class T> int runSimpleAction(const std::string& actnm, 
+                                           const std::string& valnm,
+                                           T value);
+
+    virtual VarEventReporter *getReporter();
+
+    virtual void installReporter(VarEventReporter* reporter);
 
     // Can't copy these because this does not make sense for the
     // member function callback.
@@ -94,14 +105,6 @@ public:
 
 protected:
 
-    /** Registered callbacks for the service objects. The map is
-     * indexed by m_SID, the subscription id which was obtained by
-     * each object when subscribing to receive the events for its
-     * device. The map allows the static function registered with
-     * libupnp to call the appropriate object method when it receives
-     * an event. */
-    static std::unordered_map<std::string, evtCBFunc> o_calls;
-
     /** Used by a derived class to register its callback method. This
      * creates an entry in the static map, using m_SID, which was
      * obtained by subscribe() during construction 
@@ -109,66 +112,19 @@ protected:
     void registerCallback(evtCBFunc c);
     void unregisterCallback();
 
-    /** Upper level client code event callbacks */
-    VarEventReporter *m_reporter;
-
-    std::string m_actionURL;
-    std::string m_eventURL;
-    std::string m_serviceType;
-    std::string m_deviceId;
-    std::string m_friendlyName;
-    std::string m_manufacturer;
-    std::string m_modelName;
-    
-    /** Run trivial action where there are neither input parameters
-       nor return data (beyond the status) */
-    int runTrivialAction(const std::string& actionName) {
-        SoapOutgoing args(m_serviceType, actionName);
-        SoapIncoming data;
-        return runAction(args, data);
-    }
-
-    /* Run action where there are no input parameters and a single
-       named value is to be retrieved from the result */
-    template <class T> int runSimpleGet(const std::string& actnm, 
-                                        const std::string& valnm,
-                                        T *valuep) {
-        SoapOutgoing args(m_serviceType, actnm);
-        SoapIncoming data;
-        int ret = runAction(args, data);
-        if (ret != UPNP_E_SUCCESS) {
-            return ret;
-        }
-        if (!data.get(valnm.c_str(), valuep)) {
-            LOGERR("Service::runSimpleAction: " << actnm << 
-                   " missing " << valnm << " in response" << std::endl);
-            return UPNP_E_BAD_RESPONSE;
-        }
-        return 0;
-    }
-
-    /* Run action with a single input parameter and no return data */
-    template <class T> int runSimpleAction(const std::string& actnm, 
-                                           const std::string& valnm,
-                                           T value) {
-        SoapOutgoing args(m_serviceType, actnm);
-        args(valnm, SoapHelp::val2s(value));
-        SoapIncoming data;
-        return runAction(args, data);
-    }
-
 private:
-    /** Only actually does something on the first call, to register our
+    class Internal;
+    Internal *m;
+
+    /* Only actually does something on the first call, to register our
      * (static) library callback */
     static bool initEvents();
-    /** The static event callback given to libupnp */
+    /* The static event callback given to libupnp */
     static int srvCB(Upnp_EventType et, void* vevp, void*);
     /* Tell the UPnP device (through libupnp) that we want to receive
-       its events. This is called during construction and sets m_SID */
+       its events. This is called by registerCallback() and sets m_SID */
     virtual bool subscribe();
     virtual bool unSubscribe();
-
-    Upnp_SID    m_SID; /* Subscription Id */
 };
 
 } // namespace UPnPClient

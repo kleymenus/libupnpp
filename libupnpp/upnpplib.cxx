@@ -48,6 +48,26 @@ namespace UPnPP {
 
 static LibUPnP *theLib;
 
+class LibUPnP::Internal {
+public:
+    // A Handler object records the data from registerHandler.
+    class Handler {
+    public:
+        Handler()
+            : handler(0), cookie(0) {}
+        Handler(Upnp_FunPtr h, void *c)
+            : handler(h), cookie(c) {}
+        Upnp_FunPtr handler;
+        void *cookie;
+    };
+
+    bool ok;
+    int  init_error;
+    UpnpClient_Handle clh;
+    PTMutexInit mutex;
+    std::map<Upnp_EventType, Handler> handlers;
+};
+
 LibUPnP *LibUPnP::getLibUPnP(bool serveronly, string* hwaddr,
                              const string ifname, const string ip,
                              unsigned short port)
@@ -62,14 +82,34 @@ LibUPnP *LibUPnP::getLibUPnP(bool serveronly, string* hwaddr,
     return theLib;
 }
 
+UpnpClient_Handle LibUPnP::getclh()
+{
+    return m->clh;
+}
+
+bool LibUPnP::ok() const
+{
+    return m->ok;
+}
+
+int LibUPnP::getInitError() const
+{
+    return m->init_error;
+}
 
 LibUPnP::LibUPnP(bool serveronly, string* hwaddr,
                  const string ifname, const string inip, unsigned short port)
-    : m_ok(false)
 {
     LOGDEB1("LibUPnP: serveronly " << serveronly << " &hwaddr " << hwaddr <<
            " ifname [" << ifname << "] inip [" << inip << "] port " << port 
            << endl);
+
+    if ((m = new Internal()) == 0) {
+        LOGERR("LibUPnP::LibUPnP: out of memory" << endl);
+        return;
+    }
+
+    m->ok = false;
 
     // If our caller wants to retrieve an ethernet address (typically
     // for uuid purposes), or has specified an interface we have to
@@ -92,10 +132,10 @@ LibUPnP::LibUPnP(bool serveronly, string* hwaddr,
     if (ifname.empty())
         strncpy(ip_address, inip.c_str(), ipalen);
 
-    m_init_error = UpnpInit(ip_address[0] ? ip_address : 0, port);
+    m->init_error = UpnpInit(ip_address[0] ? ip_address : 0, port);
 
-    if (m_init_error != UPNP_E_SUCCESS) {
-        LOGERR(errAsString("UpnpInit", m_init_error) << endl);
+    if (m->init_error != UPNP_E_SUCCESS) {
+        LOGERR(errAsString("UpnpInit", m->init_error) << endl);
         return;
     }
     setMaxContentLength(2000*1024);
@@ -110,14 +150,14 @@ LibUPnP::LibUPnP(bool serveronly, string* hwaddr,
     // Client initialization is simple, just do it. Defer device
     // initialization because it's more complicated.
     if (serveronly) {
-        m_ok = true;
+        m->ok = true;
     } else {
-        m_init_error = UpnpRegisterClient(o_callback, (void *)this, &m_clh);
+        m->init_error = UpnpRegisterClient(o_callback, (void *)this, &m->clh);
 		
-        if (m_init_error == UPNP_E_SUCCESS) {
-            m_ok = true;
+        if (m->init_error == UPNP_E_SUCCESS) {
+            m->ok = true;
         } else {
-            LOGERR(errAsString("UpnpRegisterClient", m_init_error) << endl);
+            LOGERR(errAsString("UpnpRegisterClient", m->init_error) << endl);
         }
     }
 
@@ -148,7 +188,7 @@ void LibUPnP::setMaxContentLength(int bytes)
 
 bool LibUPnP::setLogFileName(const std::string& fn, LogLevel level)
 {
-    PTMutexLocker lock(m_mutex);
+    PTMutexLocker lock(m->mutex);
     if (fn.empty() || level == LogLevelNone) {
 #if defined(HAVE_UPNPSETLOGLEVEL)
         UpnpCloseLog();
@@ -188,12 +228,12 @@ bool LibUPnP::setLogLevel(LogLevel level)
 void LibUPnP::registerHandler(Upnp_EventType et, Upnp_FunPtr handler,
                               void *cookie)
 {
-    PTMutexLocker lock(m_mutex);
+    PTMutexLocker lock(m->mutex);
     if (handler == 0) {
-        m_handlers.erase(et);
+        m->handlers.erase(et);
     } else {
-        Handler h(handler, cookie);
-        m_handlers[et] = h;
+        Internal::Handler h(handler, cookie);
+        m->handlers[et] = h;
     }
 }
 
@@ -214,8 +254,8 @@ int LibUPnP::o_callback(Upnp_EventType et, void* evp, void* cookie)
     }
     LOGDEB1("LibUPnP::o_callback: event type: " << evTypeAsString(et) << endl);
 
-    map<Upnp_EventType, Handler>::iterator it = ulib->m_handlers.find(et);
-    if (it != ulib->m_handlers.end()) {
+    auto it = ulib->m->handlers.find(et);
+    if (it != ulib->m->handlers.end()) {
         (it->second.handler)(et, evp, it->second.cookie);
     }
     return UPNP_E_SUCCESS;
@@ -228,6 +268,8 @@ LibUPnP::~LibUPnP()
         LOGINF("LibUPnP::~LibUPnP: " << errAsString("UpnpFinish", error)
                << endl);
     }
+    delete m;
+    m = 0;
     LOGDEB1("LibUPnP: done" << endl);
 }
 

@@ -53,6 +53,7 @@ public:
                                unsigned short port = 0);
 
     /** Set libupnp log file name and activate logging.
+     * This does nothing if libupnp was built with logging disabled.
      *
      * @param fn file name to use. Use empty string to turn logging off
      */
@@ -64,16 +65,10 @@ public:
     void setMaxContentLength(int bytes);
 
     /** Check state after initialization */
-    bool ok() const
-    {
-        return m_ok;
-    }
+    bool ok() const;
 
     /** Retrieve init error if state not ok */
-    int getInitError() const
-    {
-        return m_init_error;
-    }
+    int getInitError() const;
 
     /** Build a unique persistent UUID for a root device. This uses a hash
         of the input name (e.g.: friendlyName), and the host Ethernet address */
@@ -100,38 +95,19 @@ public:
 
     int setupWebServer(const std::string& description, UpnpDevice_Handle *dvh);
 
-    UpnpClient_Handle getclh()
-    {
-        return m_clh;
-    }
+    UpnpClient_Handle getclh();
+
 private:
+    class Internal;
+    Internal *m;
 
-    // A Handler object records the data from registerHandler.
-    class Handler {
-    public:
-        Handler()
-            : handler(0), cookie(0) {}
-        Handler(Upnp_FunPtr h, void *c)
-            : handler(h), cookie(c) {}
-        Upnp_FunPtr handler;
-        void *cookie;
-    };
-
-        
     LibUPnP(bool serveronly, std::string *hwaddr, 
             const std::string ifname, const std::string ip,
             unsigned short port);
-
     LibUPnP(const LibUPnP &);
     LibUPnP& operator=(const LibUPnP &);
 
     static int o_callback(Upnp_EventType, void *, void *);
-
-    bool m_ok;
-    int  m_init_error;
-    UpnpClient_Handle m_clh;
-    PTMutexInit m_mutex;
-    std::map<Upnp_EventType, Handler> m_handlers;
 };
 
 } // namespace UPnPP

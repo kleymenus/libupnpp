@@ -33,6 +33,7 @@
 
 using namespace std;
 using namespace std::placeholders;
+using namespace UPnPP;
 
 namespace UPnPClient {
 
@@ -50,24 +51,105 @@ public:
      }
 };
 
-Service::Service(const UPnPDeviceDesc& device,
-                 const UPnPServiceDesc& service)
-    : m_reporter(0), 
-      m_actionURL(caturl(device.URLBase, service.controlURL)),
-      m_eventURL(caturl(device.URLBase, service.eventSubURL)),
-      m_serviceType(service.serviceType),
-      m_deviceId(device.UDN),
-      m_friendlyName(device.friendlyName),
-      m_manufacturer(device.manufacturer),
-      m_modelName(device.modelName)
+class Service::Internal {
+public:
+    /** Upper level client code event callbacks. To be called by derived class
+     * for reporting events. */
+    VarEventReporter *reporter;
+    std::string actionURL;
+    std::string eventURL;
+    std::string serviceType;
+    std::string deviceId;
+    std::string friendlyName;
+    std::string manufacturer;
+    std::string modelName;
+    Upnp_SID    SID; /* Subscription Id */
+};
+
+/** Registered callbacks for the service objects. The map is
+ * indexed by SID, the subscription id which was obtained by
+ * each object when subscribing to receive the events for its
+ * device. The map allows the static function registered with
+ * libupnp to call the appropriate object method when it receives
+ * an event. */
+static std::unordered_map<std::string, evtCBFunc> o_calls;
+
+
+Service::Service(const UPnPDeviceDesc& devdesc,
+                 const UPnPServiceDesc& servdesc)
 { 
+    if ((m = new Internal()) == 0) {
+        LOGERR("Device::Device: out of memory" << endl);
+        return;
+    }
+
+    m->reporter = 0;
+    m->actionURL = caturl(devdesc.URLBase, servdesc.controlURL);
+    m->eventURL = caturl(devdesc.URLBase, servdesc.eventSubURL);
+    m->serviceType = servdesc.serviceType;
+    m->deviceId = devdesc.UDN;
+    m->friendlyName = devdesc.friendlyName;
+    m->manufacturer = devdesc.manufacturer;
+    m->modelName = devdesc.modelName;
+
     // Only does anything the first time
     initEvents();
 }
 
+Service::Service() 
+{
+    if ((m = new Internal()) == 0) {
+        LOGERR("Device::Device: out of memory" << endl);
+        return;
+    }
+    m->reporter = 0;
+}
+
 Service::~Service()
 {
-    LOGDEB("Service::~Service: " << m_serviceType << " SID " << m_SID << endl);
+    LOGDEB("Service::~Service: " << m->serviceType << " SID " << m->SID << endl);
+    delete m;
+    m = 0;
+}
+
+const string& Service::getFriendlyName() const 
+{
+    return m->friendlyName;
+}
+
+const string& Service::getDeviceId() const 
+{
+    return m->deviceId;
+}
+
+const string& Service::getServiceType() const
+{
+    return m->serviceType;
+}
+
+const string& Service::getActionURL() const
+{
+    return m->actionURL;
+}
+
+const string& Service::getModelName() const
+{
+    return m->modelName;
+}
+
+const string& Service::getManufacturer() const
+{
+    return m->manufacturer;
+}
+
+VarEventReporter *Service::getReporter()
+{
+    return m->reporter;
+}
+
+void Service::installReporter(VarEventReporter* reporter)
+{
+    m->reporter = reporter;
 }
 
 int Service::runAction(const SoapOutgoing& args, SoapIncoming& data)
@@ -91,7 +173,7 @@ int Service::runAction(const SoapOutgoing& args, SoapIncoming& data)
     LOGDEB1("Service::runAction: rqst: [" << 
             ixmlwPrintDoc(request) << "]" << endl);
 
-    int ret = UpnpSendAction(hdl, m_actionURL.c_str(), m_serviceType.c_str(),
+    int ret = UpnpSendAction(hdl, m->actionURL.c_str(), m->serviceType.c_str(),
                              0 /*devUDN*/, request, &response);
 
     if (ret != UPNP_E_SUCCESS) {
@@ -111,6 +193,40 @@ int Service::runAction(const SoapOutgoing& args, SoapIncoming& data)
     return UPNP_E_SUCCESS;
 }
 
+int Service::runTrivialAction(const std::string& actionName) 
+{
+    SoapOutgoing args(m->serviceType, actionName);
+    SoapIncoming data;
+    return runAction(args, data);
+}
+
+template <class T> int Service::runSimpleGet(const std::string& actnm, 
+                                             const std::string& valnm,
+                                             T *valuep) 
+{
+    SoapOutgoing args(m->serviceType, actnm);
+    SoapIncoming data;
+    int ret = runAction(args, data);
+    if (ret != UPNP_E_SUCCESS) {
+        return ret;
+    }
+    if (!data.get(valnm.c_str(), valuep)) {
+        LOGERR("Service::runSimpleAction: " << actnm << 
+               " missing " << valnm << " in response" << std::endl);
+        return UPNP_E_BAD_RESPONSE;
+    }
+    return 0;
+}
+
+template <class T> int Service::runSimpleAction(const std::string& actnm, 
+                                                const std::string& valnm,
+                                                T value) 
+{
+    SoapOutgoing args(m->serviceType, actnm);
+    args(valnm, SoapHelp::val2s(value));
+    SoapIncoming data;
+    return runAction(args, data);
+}
 
 static PTMutexInit cblock;
 int Service::srvCB(Upnp_EventType et, void* vevp, void*)
@@ -194,7 +310,7 @@ bool Service::initEvents()
 //void Service::evtCallback(
 //    const std::unordered_map<std::string, std::string>*)
 //{
-//    LOGDEB("Service::evtCallback!! service: " << m_serviceType << endl);
+//    LOGDEB("Service::evtCallback!! service: " << m->serviceType << endl);
 //}
 
 bool Service::subscribe()
@@ -206,14 +322,14 @@ bool Service::subscribe()
         return UPNP_E_OUTOF_MEMORY;
     }
     int timeout = 1800;
-    int ret = UpnpSubscribe(lib->getclh(), m_eventURL.c_str(),
-                            &timeout, m_SID);
+    int ret = UpnpSubscribe(lib->getclh(), m->eventURL.c_str(),
+                            &timeout, m->SID);
     if (ret != UPNP_E_SUCCESS) {
         LOGERR("Service:subscribe: failed: " << ret << " : " <<
                UpnpGetErrorMessage(ret) << endl);
         return false;
     } 
-    LOGDEB1("Service::subscribe: sid: " << m_SID << endl);
+    LOGDEB1("Service::subscribe: sid: " << m->SID << endl);
     return true;
 }
 
@@ -225,14 +341,14 @@ bool Service::unSubscribe()
         LOGINF("Service::unSubscribe: no lib" << endl);
         return UPNP_E_OUTOF_MEMORY;
     }
-    if (m_SID[0]) {
-        int ret = UpnpUnSubscribe(lib->getclh(), m_SID);
+    if (m->SID[0]) {
+        int ret = UpnpUnSubscribe(lib->getclh(), m->SID);
         if (ret != UPNP_E_SUCCESS) {
             LOGERR("Service:unSubscribe: failed: " << ret << " : " <<
                    UpnpGetErrorMessage(ret) << endl);
             return false;
         } 
-        m_SID[0] = 0;
+        m->SID[0] = 0;
     }
     return true;
 }
@@ -242,18 +358,22 @@ void Service::registerCallback(evtCBFunc c)
     if (!subscribe()) 
         return;
     PTMutexLocker lock(cblock);
-    LOGDEB1("Service::registerCallback: " << m_SID << endl);
-    o_calls[m_SID] = c;
+    LOGDEB1("Service::registerCallback: " << m->SID << endl);
+    o_calls[m->SID] = c;
 }
 
 void Service::unregisterCallback()
 {
     PTMutexLocker lock(cblock);
-    LOGDEB1("Service::unregisterCallback: " << m_SID << endl);
-    o_calls.erase(m_SID);
+    LOGDEB1("Service::unregisterCallback: " << m->SID << endl);
+    o_calls.erase(m->SID);
     unSubscribe();
 }
 
-std::unordered_map<std::string, evtCBFunc> Service::o_calls;
+template int Service::runSimpleAction<int>(string const&, string const&, int);
+template int Service::runSimpleGet<int>(string const&, string const&, int*);
+template int Service::runSimpleGet<bool>(string const&, string const&, bool*);
+template int Service::runSimpleAction<bool>(string const&, string const&, bool);
+template int Service::runSimpleGet<string>(string const&, string const&, string*);
 
 }

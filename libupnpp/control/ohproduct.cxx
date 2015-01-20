@@ -107,14 +107,14 @@ bool OHProduct::isOHPrService(const string& st)
 
 int OHProduct::getSources(vector<Source>& sources)
 {
-    SoapOutgoing args(m_serviceType, "SourceXml");
+    SoapOutgoing args(getServiceType(), "SourceXml");
     SoapIncoming data;
     int ret = runAction(args, data);
     if (ret != UPNP_E_SUCCESS) {
         return ret;
     }
     string sxml;
-    if (!data.getString("Value", &sxml)) {
+    if (!data.get("Value", &sxml)) {
         LOGERR("OHProduct:getSources: missing Value in response" << endl);
         return UPNP_E_BAD_RESPONSE;
     }

@@ -48,9 +48,9 @@ bool OHTime::isOHTMService(const string& st)
 void OHTime::evtCallback(
     const std::unordered_map<std::string, std::string>& props)
 {
-    LOGDEB1("OHTime::evtCallback: m_reporter: " << m_reporter << endl);
+    LOGDEB1("OHTime::evtCallback: getReporter(): " << getReporter() << endl);
     for (auto it = props.begin(); it != props.end(); it++) {
-        if (!m_reporter) {
+        if (!getReporter()) {
             LOGDEB1("OHTime::evtCallback: " << it->first << " -> " 
                     << it->second << endl);
             continue;
@@ -60,12 +60,12 @@ void OHTime::evtCallback(
             !it->first.compare("Duration") ||
             !it->first.compare("Seconds")) {
 
-            m_reporter->changed(it->first.c_str(), atoi(it->second.c_str()));
+            getReporter()->changed(it->first.c_str(), atoi(it->second.c_str()));
 
         } else {
             LOGERR("OHTime event: unknown variable: name [" <<
                    it->first << "] value [" << it->second << endl);
-            m_reporter->changed(it->first.c_str(), it->second.c_str());
+            getReporter()->changed(it->first.c_str(), it->second.c_str());
         }
     }
 }
@@ -77,7 +77,7 @@ void OHTime::registerCallback()
 
 int OHTime::time(Time& out)
 {
-    SoapOutgoing args(m_serviceType, "Time");
+    SoapOutgoing args(getServiceType(), "Time");
     SoapIncoming data;
     int ret = runAction(args, data);
     if (ret != UPNP_E_SUCCESS) {

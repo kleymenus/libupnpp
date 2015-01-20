@@ -49,26 +49,26 @@ bool OHVolume::isOHVLService(const string& st)
 void OHVolume::evtCallback(
     const std::unordered_map<std::string, std::string>& props)
 {
-    LOGDEB1("OHVolume::evtCallback: m_reporter: " << m_reporter << endl);
+    LOGDEB1("OHVolume::evtCallback: getReporter(): " << getReporter() << endl);
     for (auto it = props.begin(); it != props.end(); it++) {
-        if (!m_reporter) {
+        if (!getReporter()) {
             LOGDEB1("OHVolume::evtCallback: " << it->first << " -> "
                     << it->second << endl);
             continue;
         }
 
         if (!it->first.compare("Volume")) {
-            m_reporter->changed(it->first.c_str(), atoi(it->second.c_str()));
+            getReporter()->changed(it->first.c_str(), atoi(it->second.c_str()));
         } else if (!it->first.compare("VolumeLimit")) {
             m_volmax = atoi(it->second.c_str());
         } else if (!it->first.compare("Mute")) {
             bool val = false;
             stringToBool(it->second, &val);
-            m_reporter->changed(it->first.c_str(), val ? 1 : 0);
+            getReporter()->changed(it->first.c_str(), val ? 1 : 0);
         } else {
             LOGDEB1("OHVolume event: untracked variable: name [" <<
                     it->first << "] value [" << it->second << endl);
-            m_reporter->changed(it->first.c_str(), it->second.c_str());
+            getReporter()->changed(it->first.c_str(), it->second.c_str());
         }
     }
 }

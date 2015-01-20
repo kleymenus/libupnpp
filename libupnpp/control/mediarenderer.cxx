@@ -31,6 +31,7 @@
 
 using namespace std;
 using namespace std::placeholders;
+using namespace UPnPP;
 
 namespace UPnPClient {
 
@@ -89,15 +90,17 @@ bool MediaRenderer::hasOpenHome()
     return ohpr() ? true : false;
 }
 
-
 RDCH MediaRenderer::rdc() 
 {
+    if (desc() == 0)
+        return RDCH();
+
     auto rdcl = m_rdc.lock();
     if (rdcl)
         return rdcl;
-    for (auto it = m_desc.services.begin(); it != m_desc.services.end(); it++) {
+    for (auto it = desc()->services.begin();it != desc()->services.end();it++) {
         if (RenderingControl::isRDCService(it->serviceType)) {
-            rdcl = RDCH(new RenderingControl(m_desc, *it));
+            rdcl = RDCH(new RenderingControl(*desc(), *it));
             break;
         }
     }
@@ -112,9 +115,9 @@ AVTH MediaRenderer::avt()
     auto avtl = m_avt.lock();
     if (avtl)
         return avtl;
-    for (auto it = m_desc.services.begin(); it != m_desc.services.end(); it++) {
+    for (auto it = desc()->services.begin();it != desc()->services.end();it++) {
         if (AVTransport::isAVTService(it->serviceType)) {
-            avtl = AVTH(new AVTransport(m_desc, *it));
+            avtl = AVTH(new AVTransport(*desc(), *it));
             break;
         }
     }
@@ -129,9 +132,9 @@ OHPRH MediaRenderer::ohpr()
     auto ohprl = m_ohpr.lock();
     if (ohprl)
         return ohprl;
-    for (auto it = m_desc.services.begin(); it != m_desc.services.end(); it++) {
+    for (auto it = desc()->services.begin();it != desc()->services.end();it++) {
         if (OHProduct::isOHPrService(it->serviceType)) {
-            ohprl = OHPRH(new OHProduct(m_desc, *it));
+            ohprl = OHPRH(new OHProduct(*desc(), *it));
             break;
         }
     }
@@ -146,9 +149,9 @@ OHPLH MediaRenderer::ohpl()
     auto ohpll = m_ohpl.lock();
     if (ohpll)
         return ohpll;
-    for (auto it = m_desc.services.begin(); it != m_desc.services.end(); it++) {
+    for (auto it = desc()->services.begin();it != desc()->services.end();it++) {
         if (OHPlaylist::isOHPlService(it->serviceType)) {
-            ohpll = OHPLH(new OHPlaylist(m_desc, *it));
+            ohpll = OHPLH(new OHPlaylist(*desc(), *it));
             break;
         }
     }
@@ -163,9 +166,9 @@ OHTMH MediaRenderer::ohtm()
     auto ohtml = m_ohtm.lock();
     if (ohtml)
         return ohtml;
-    for (auto it = m_desc.services.begin(); it != m_desc.services.end(); it++) {
+    for (auto it = desc()->services.begin();it != desc()->services.end();it++) {
         if (OHTime::isOHTMService(it->serviceType)) {
-            ohtml = OHTMH(new OHTime(m_desc, *it));
+            ohtml = OHTMH(new OHTime(*desc(), *it));
             break;
         }
     }
@@ -180,9 +183,9 @@ OHVLH MediaRenderer::ohvl()
     auto ohvll = m_ohvl.lock();
     if (ohvll)
         return ohvll;
-    for (auto it = m_desc.services.begin(); it != m_desc.services.end(); it++) {
+    for (auto it = desc()->services.begin();it != desc()->services.end();it++) {
         if (OHVolume::isOHVLService(it->serviceType)) {
-            ohvll = OHVLH(new OHVolume(m_desc, *it));
+            ohvll = OHVLH(new OHVolume(*desc(), *it));
             break;
         }
     }

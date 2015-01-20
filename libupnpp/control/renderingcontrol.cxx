@@ -35,6 +35,7 @@
 
 using namespace std;
 using namespace std::placeholders;
+using namespace UPnPP;
 
 namespace UPnPClient {
 
@@ -91,7 +92,7 @@ int RenderingControl::devVolTo0100(int dev_vol)
 void RenderingControl::evtCallback(
     const std::unordered_map<std::string, std::string>& props)
 {
-    LOGDEB1("RenderingControl::evtCallback: m_reporter " << m_reporter << endl);
+    LOGDEB1("RenderingControl::evtCallback: getReporter() " << getReporter() << endl);
     for (auto it = props.begin(); it != props.end(); it++) {
         if (!it->first.compare("LastChange")) {
             std::unordered_map<std::string, std::string> props1;
@@ -105,13 +106,13 @@ void RenderingControl::evtCallback(
                         it1->second << endl);
                 if (!it1->first.compare("Volume")) {
                     int vol = devVolTo0100(atoi(it1->second.c_str()));
-                    if (m_reporter) {
-                        m_reporter->changed(it1->first.c_str(), vol);
+                    if (getReporter()) {
+                        getReporter()->changed(it1->first.c_str(), vol);
                     }
                 } else if (!it1->first.compare("Mute")) {
                     bool mute;
-                    if (m_reporter && stringToBool(it1->second, &mute))
-                        m_reporter->changed(it1->first.c_str(), mute);
+                    if (getReporter() && stringToBool(it1->second, &mute))
+                        getReporter()->changed(it1->first.c_str(), mute);
                 }
             }
         } else {
@@ -173,7 +174,7 @@ int RenderingControl::setVolume(int ivol, const string& channel)
            " m_volstep " << m_volstep << " computed desiredVolume " << 
            desiredVolume << endl);
 
-    SoapOutgoing args(m_serviceType, "SetVolume");
+    SoapOutgoing args(getServiceType(), "SetVolume");
     args("InstanceID", "0")("Channel", channel)
         ("DesiredVolume", SoapHelp::i2s(desiredVolume));
     SoapIncoming data;
@@ -182,7 +183,7 @@ int RenderingControl::setVolume(int ivol, const string& channel)
 
 int RenderingControl::getVolume(const string& channel)
 {
-    SoapOutgoing args(m_serviceType, "GetVolume");
+    SoapOutgoing args(getServiceType(), "GetVolume");
     args("InstanceID", "0")("Channel", channel);
     SoapIncoming data;
     int ret = runAction(args, data);
@@ -190,7 +191,7 @@ int RenderingControl::getVolume(const string& channel)
         return ret;
     }
     int dev_volume;
-    if (!data.getInt("CurrentVolume", &dev_volume)) {
+    if (!data.get("CurrentVolume", &dev_volume)) {
         LOGERR("RenderingControl:getVolume: missing CurrentVolume in response" 
         << endl);
         return UPNP_E_BAD_RESPONSE;
@@ -202,7 +203,7 @@ int RenderingControl::getVolume(const string& channel)
 
 int RenderingControl::setMute(bool mute, const string& channel)
 {
-    SoapOutgoing args(m_serviceType, "SetMute");
+    SoapOutgoing args(getServiceType(), "SetMute");
     args("InstanceID", "0")("Channel", channel)
         ("DesiredMute", SoapHelp::i2s(mute?1:0));
     SoapIncoming data;
@@ -211,7 +212,7 @@ int RenderingControl::setMute(bool mute, const string& channel)
 
 bool RenderingControl::getMute(const string& channel)
 {
-    SoapOutgoing args(m_serviceType, "GetMute");
+    SoapOutgoing args(getServiceType(), "GetMute");
     args("InstanceID", "0")("Channel", channel);
     SoapIncoming data;
     int ret = runAction(args, data);
@@ -219,7 +220,7 @@ bool RenderingControl::getMute(const string& channel)
         return ret;
     }
     bool mute;
-    if (!data.getBool("CurrentMute", &mute)) {
+    if (!data.get("CurrentMute", &mute)) {
         LOGERR("RenderingControl:getMute: missing CurrentMute in response" 
         << endl);
         return UPNP_E_BAD_RESPONSE;

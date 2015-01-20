@@ -73,9 +73,9 @@ static int stringToTpState(const string& value, OHPlaylist::TPState *tpp)
 void OHPlaylist::evtCallback(
     const std::unordered_map<std::string, std::string>& props)
 {
-    LOGDEB1("OHPlaylist::evtCallback: m_reporter: " << m_reporter << endl);
+    LOGDEB1("OHPlaylist::evtCallback: getReporter(): " << getReporter() << endl);
     for (auto it = props.begin(); it != props.end(); it++) {
-        if (!m_reporter) {
+        if (!getReporter()) {
             LOGDEB1("OHPlaylist::evtCallback: " << it->first << " -> " 
                     << it->second << endl);
             continue;
@@ -84,33 +84,33 @@ void OHPlaylist::evtCallback(
         if (!it->first.compare("TransportState")) {
             TPState tp;
             stringToTpState(it->second, &tp);
-            m_reporter->changed(it->first.c_str(), int(tp));
+            getReporter()->changed(it->first.c_str(), int(tp));
 
         } else if (!it->first.compare("ProtocolInfo")) {
-            m_reporter->changed(it->first.c_str(), 
+            getReporter()->changed(it->first.c_str(), 
                                 it->second.c_str());
 
         } else if (!it->first.compare("Repeat") ||
                    !it->first.compare("Shuffle")) {
             bool val = false;
             stringToBool(it->second, &val);
-            m_reporter->changed(it->first.c_str(), val ? 1 : 0);
+            getReporter()->changed(it->first.c_str(), val ? 1 : 0);
 
         } else if (!it->first.compare("Id") ||
                    !it->first.compare("TracksMax")) {
-            m_reporter->changed(it->first.c_str(),
+            getReporter()->changed(it->first.c_str(),
                                 atoi(it->second.c_str()));
             
         } else if (!it->first.compare("IdArray")) {
             // Decode IdArray. See how we call the client
             vector<int> v;
             ohplIdArrayToVec(it->second, &v);
-            m_reporter->changed(it->first.c_str(), v);
+            getReporter()->changed(it->first.c_str(), v);
 
         } else {
             LOGERR("OHPlaylist event: unknown variable: name [" <<
                    it->first << "] value [" << it->second << endl);
-                m_reporter->changed(it->first.c_str(), it->second.c_str());
+                getReporter()->changed(it->first.c_str(), it->second.c_str());
         }
     }
 }
@@ -191,7 +191,7 @@ int OHPlaylist::id(int *value)
 
 int OHPlaylist::read(int id, std::string* urip, UPnPDirObject *dirent)
 {
-    SoapOutgoing args(m_serviceType, "Read");
+    SoapOutgoing args(getServiceType(), "Read");
     args("Id", SoapHelp::i2s(id));
     SoapIncoming data;
     int ret = runAction(args, data);
@@ -294,7 +294,7 @@ int OHPlaylist::readList(const std::vector<int>& ids,
     }
     entsp->clear();
 
-    SoapOutgoing args(m_serviceType, "ReadList");
+    SoapOutgoing args(getServiceType(), "ReadList");
     args("IdList", idsparam);
     SoapIncoming data;
     int ret = runAction(args, data);
@@ -315,7 +315,7 @@ int OHPlaylist::readList(const std::vector<int>& ids,
 int OHPlaylist::insert(int afterid, const string& uri, const string& didl, 
                        int *nid)
 {
-    SoapOutgoing args(m_serviceType, "Insert");
+    SoapOutgoing args(getServiceType(), "Insert");
     args("AfterId", SoapHelp::i2s(afterid))
         ("Uri", uri)
         ("Metadata", didl);
@@ -347,7 +347,7 @@ int OHPlaylist::tracksMax(int *valuep)
 
 int OHPlaylist::idArray(vector<int> *ids, int *tokp)
 {
-    SoapOutgoing args(m_serviceType, "IdArray");
+    SoapOutgoing args(getServiceType(), "IdArray");
     SoapIncoming data;
     int ret = runAction(args, data);
     if (ret != UPNP_E_SUCCESS) {
@@ -368,7 +368,7 @@ int OHPlaylist::idArray(vector<int> *ids, int *tokp)
 
 int OHPlaylist::idArrayChanged(int token, bool *changed)
 {
-    SoapOutgoing args(m_serviceType, "IdArrayChanged");
+    SoapOutgoing args(getServiceType(), "IdArrayChanged");
     args("Token", SoapHelp::i2s(token));
     SoapIncoming data;
     int ret = runAction(args, data);
@@ -384,7 +384,7 @@ int OHPlaylist::idArrayChanged(int token, bool *changed)
 
 int OHPlaylist::protocolInfo(std::string *proto)
 {
-    SoapOutgoing args(m_serviceType, "ProtocolInfo");
+    SoapOutgoing args(getServiceType(), "ProtocolInfo");
     SoapIncoming data;
     int ret = runAction(args, data);
     if (ret != UPNP_E_SUCCESS) {

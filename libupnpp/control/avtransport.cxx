@@ -35,6 +35,7 @@
 
 using namespace std;
 using namespace std::placeholders;
+using namespace UPnPP;
 
 namespace UPnPClient {
 
@@ -125,33 +126,33 @@ void AVTransport::evtCallback(
             return;
         }
         for (auto it1 = props1.begin(); it1 != props1.end(); it1++) {
-            if (!m_reporter) {
+            if (!getReporter()) {
                 LOGDEB1("AVTransport::evtCallback: " << it1->first << " -> " 
                        << it1->second << endl);
                 continue;
             }
 
             if (!it1->first.compare("TransportState")) {
-                m_reporter->changed(it1->first.c_str(), 
+                getReporter()->changed(it1->first.c_str(), 
                                     stringToTpState(it1->second));
 
             } else if (!it1->first.compare("TransportStatus")) {
-                m_reporter->changed(it1->first.c_str(), 
+                getReporter()->changed(it1->first.c_str(), 
                                     stringToTpStatus(it1->second));
 
             } else if (!it1->first.compare("CurrentPlayMode")) {
-                m_reporter->changed(it1->first.c_str(), 
+                getReporter()->changed(it1->first.c_str(), 
                                     stringToPlayMode(it1->second));
 
             } else if (!it1->first.compare("CurrentTransportActions")) {
                 int iacts;
                 if (!CTAStringToBits(it1->second, iacts))
-                    m_reporter->changed(it1->first.c_str(), iacts);
+                    getReporter()->changed(it1->first.c_str(), iacts);
 
             } else if (!it1->first.compare("CurrentTrackURI") ||
                        !it1->first.compare("AVTransportURI") ||
                        !it1->first.compare("NextAVTransportURI")) {
-                m_reporter->changed(it1->first.c_str(), 
+                getReporter()->changed(it1->first.c_str(), 
                                     it1->second.c_str());
 
             } else if (!it1->first.compare("TransportPlaySpeed") ||
@@ -160,14 +161,14 @@ void AVTransport::evtCallback(
                        !it1->first.compare("RelativeCounterPosition") ||
                        !it1->first.compare("AbsoluteCounterPosition") ||
                        !it1->first.compare("InstanceID")) {
-                m_reporter->changed(it1->first.c_str(),
+                getReporter()->changed(it1->first.c_str(),
                                     atoi(it1->second.c_str()));
 
             } else if (!it1->first.compare("CurrentMediaDuration") ||
                        !it1->first.compare("CurrentTrackDuration") ||
                        !it1->first.compare("RelativeTimePosition") ||
                        !it1->first.compare("AbsoluteTimePosition")) {
-                m_reporter->changed(it1->first.c_str(),
+                getReporter()->changed(it1->first.c_str(),
                                     upnpdurationtos(it1->second));
 
             } else if (!it1->first.compare("AVTransportURIMetaData") ||
@@ -181,7 +182,7 @@ void AVTransport::evtCallback(
                     LOGDEB1("AVTransport event: good metadata: [" <<
                             it1->second << "]" << endl);
                     if (meta.m_items.size() > 0) {
-                        m_reporter->changed(it1->first.c_str(), 
+                        getReporter()->changed(it1->first.c_str(), 
                                             meta.m_items[0]);
                     }
                 }
@@ -192,12 +193,12 @@ void AVTransport::evtCallback(
                        !it1->first.compare("RecordMediumWriteStatus") ||
                        !it1->first.compare("CurrentRecordQualityMode") ||
                        !it1->first.compare("PossibleRecordQualityModes")){
-                m_reporter->changed(it1->first.c_str(),it1->second.c_str());
+                getReporter()->changed(it1->first.c_str(),it1->second.c_str());
 
             } else {
                 LOGDEB1("AVTransport event: unknown variable: name [" <<
                         it1->first << "] value [" << it1->second << endl);
-                m_reporter->changed(it1->first.c_str(),it1->second.c_str());
+                getReporter()->changed(it1->first.c_str(),it1->second.c_str());
             }
         }
     }
@@ -207,7 +208,7 @@ void AVTransport::evtCallback(
 int AVTransport::setURI(const string& uri, const string& metadata,
                         int instanceID, bool next)
 {
-    SoapOutgoing args(m_serviceType, next ? "SetNextAVTransportURI" :
+    SoapOutgoing args(getServiceType(), next ? "SetNextAVTransportURI" :
                          "SetAVTransportURI");
     args("InstanceID", SoapHelp::i2s(instanceID))
         (next ? "NextURI" : "CurrentURI", uri)
@@ -219,7 +220,7 @@ int AVTransport::setURI(const string& uri, const string& metadata,
 
 int AVTransport::setPlayMode(PlayMode pm, int instanceID)
 {
-    SoapOutgoing args(m_serviceType, "SetPlayMode");
+    SoapOutgoing args(getServiceType(), "SetPlayMode");
     string playmode;
     switch (pm) {
     case PM_Normal: playmode = "NORMAL"; break;
@@ -240,7 +241,7 @@ int AVTransport::setPlayMode(PlayMode pm, int instanceID)
 
 int AVTransport::getMediaInfo(MediaInfo& info, int instanceID)
 {
-    SoapOutgoing args(m_serviceType, "GetMediaInfo");
+    SoapOutgoing args(getServiceType(), "GetMediaInfo");
     args("InstanceID", SoapHelp::i2s(instanceID));
     SoapIncoming data;
     int ret = runAction(args, data);
@@ -248,29 +249,29 @@ int AVTransport::getMediaInfo(MediaInfo& info, int instanceID)
         return ret;
     }
     string s;
-    data.getInt("NrTracks", &info.nrtracks);
-    data.getString("MediaDuration", &s);
+    data.get("NrTracks", &info.nrtracks);
+    data.get("MediaDuration", &s);
     info.mduration = upnpdurationtos(s);
-    data.getString("CurrentURI", &info.cururi);
-    data.getString("CurrentURIMetaData", &s);
+    data.get("CurrentURI", &info.cururi);
+    data.get("CurrentURIMetaData", &s);
     UPnPDirContent meta;
     meta.parse(s);
     if (meta.m_items.size() > 0)
         info.curmeta = meta.m_items[0];
     meta.clear();
-    data.getString("NextURI", &info.nexturi);
-    data.getString("NextURIMetaData", &s);
+    data.get("NextURI", &info.nexturi);
+    data.get("NextURIMetaData", &s);
     if (meta.m_items.size() > 0)
         info.nextmeta = meta.m_items[0];
-    data.getString("PlayMedium", &info.pbstoragemed);
-    data.getString("RecordMedium", &info.pbstoragemed);
-    data.getString("WriteStatus", &info.ws);
+    data.get("PlayMedium", &info.pbstoragemed);
+    data.get("RecordMedium", &info.pbstoragemed);
+    data.get("WriteStatus", &info.ws);
     return 0;
 }
 
 int AVTransport::getTransportInfo(TransportInfo& info, int instanceID)
 {
-    SoapOutgoing args(m_serviceType, "GetTransportInfo");
+    SoapOutgoing args(getServiceType(), "GetTransportInfo");
     args("InstanceID", SoapHelp::i2s(instanceID));
     SoapIncoming data;
     int ret = runAction(args, data);
@@ -278,17 +279,17 @@ int AVTransport::getTransportInfo(TransportInfo& info, int instanceID)
         return ret;
     }
     string s;
-    data.getString("CurrentTransportState", &s);
+    data.get("CurrentTransportState", &s);
     info.tpstate = stringToTpState(s);
-    data.getString("CurrentTransportStatus", &s);
+    data.get("CurrentTransportStatus", &s);
     info.tpstatus = stringToTpStatus(s);
-    data.getInt("CurrentSpeed", &info.curspeed);
+    data.get("CurrentSpeed", &info.curspeed);
     return 0;
 }
 
 int AVTransport::getPositionInfo(PositionInfo& info, int instanceID)
 {
-    SoapOutgoing args(m_serviceType, "GetPositionInfo");
+    SoapOutgoing args(getServiceType(), "GetPositionInfo");
     args("InstanceID", SoapHelp::i2s(instanceID));
     SoapIncoming data;
     int ret = runAction(args, data);
@@ -296,10 +297,10 @@ int AVTransport::getPositionInfo(PositionInfo& info, int instanceID)
         return ret;
     }
     string s;
-    data.getInt("Track", &info.track);
-    data.getString("TrackDuration", &s);
+    data.get("Track", &info.track);
+    data.get("TrackDuration", &s);
     info.trackduration = upnpdurationtos(s);
-    data.getString("TrackMetaData", &s);
+    data.get("TrackMetaData", &s);
     UPnPDirContent meta;
     meta.parse(s);
     if (meta.m_items.size() > 0) {
@@ -308,34 +309,34 @@ int AVTransport::getPositionInfo(PositionInfo& info, int instanceID)
                meta.m_items.size() << " current title: " 
                << meta.m_items[0].m_title << endl);
     }
-    data.getString("TrackURI", &info.trackuri);
-    data.getString("RelTime", &s);
+    data.get("TrackURI", &info.trackuri);
+    data.get("RelTime", &s);
     info.reltime = upnpdurationtos(s);
-    data.getString("AbsTime", &s);
+    data.get("AbsTime", &s);
     info.abstime = upnpdurationtos(s);
-    data.getInt("RelCount", &info.relcount);
-    data.getInt("AbsCount", &info.abscount);
+    data.get("RelCount", &info.relcount);
+    data.get("AbsCount", &info.abscount);
     return 0;
 }
 
 int AVTransport::getDeviceCapabilities(DeviceCapabilities& info, int iID)
 {
-    SoapOutgoing args(m_serviceType, "GetDeviceCapabilities");
+    SoapOutgoing args(getServiceType(), "GetDeviceCapabilities");
     args("InstanceID", SoapHelp::i2s(iID));
     SoapIncoming data;
     int ret = runAction(args, data);
     if (ret != UPNP_E_SUCCESS) {
         return ret;
     }
-    data.getString("PlayMedia", &info.playmedia);
-    data.getString("RecMedia", &info.recmedia);
-    data.getString("RecQualityModes", &info.recqualitymodes);
+    data.get("PlayMedia", &info.playmedia);
+    data.get("RecMedia", &info.recmedia);
+    data.get("RecQualityModes", &info.recqualitymodes);
     return 0;
 }
 
 int AVTransport::getTransportSettings(TransportSettings& info, int instanceID)
 {
-    SoapOutgoing args(m_serviceType, "GetTransportSettings");
+    SoapOutgoing args(getServiceType(), "GetTransportSettings");
     args("InstanceID", SoapHelp::i2s(instanceID));
     SoapIncoming data;
     int ret = runAction(args, data);
@@ -343,15 +344,15 @@ int AVTransport::getTransportSettings(TransportSettings& info, int instanceID)
         return ret;
     }
     string s;
-    data.getString("PlayMedia", &s);
+    data.get("PlayMedia", &s);
     info.playmode = stringToPlayMode(s);
-    data.getString("RecQualityMode", &info.recqualitymode);
+    data.get("RecQualityMode", &info.recqualitymode);
     return 0;
 }
 
 int AVTransport::getCurrentTransportActions(int& iacts, int iID)
 {
-    SoapOutgoing args(m_serviceType, "GetCurrentTransportActions");
+    SoapOutgoing args(getServiceType(), "GetCurrentTransportActions");
     args("InstanceID", SoapHelp::i2s(iID));
     SoapIncoming data;
     int ret = runAction(args, data);
@@ -359,7 +360,7 @@ int AVTransport::getCurrentTransportActions(int& iacts, int iID)
         return ret;
     }
     string actions;
-    if (!data.getString("Actions", &actions)) {
+    if (!data.get("Actions", &actions)) {
         LOGERR("AVTransport:getCurrentTransportActions: no actions in answer"
                << endl);
         return UPNP_E_BAD_RESPONSE;
@@ -402,7 +403,7 @@ int AVTransport::CTAStringToBits(const string& actions, int& iacts)
 
 int AVTransport::stop(int instanceID)
 {
-    SoapOutgoing args(m_serviceType, "Stop");
+    SoapOutgoing args(getServiceType(), "Stop");
     args("InstanceID", SoapHelp::i2s(instanceID));
     SoapIncoming data;
     return runAction(args, data);
@@ -410,7 +411,7 @@ int AVTransport::stop(int instanceID)
 
 int AVTransport::pause(int instanceID)
 {
-    SoapOutgoing args(m_serviceType, "Pause");
+    SoapOutgoing args(getServiceType(), "Pause");
     args("InstanceID", SoapHelp::i2s(instanceID));
     SoapIncoming data;
     return runAction(args, data);
@@ -418,7 +419,7 @@ int AVTransport::pause(int instanceID)
 
 int AVTransport::play(int speed, int instanceID)
 {
-    SoapOutgoing args(m_serviceType, "Play");
+    SoapOutgoing args(getServiceType(), "Play");
     args("InstanceID", SoapHelp::i2s(instanceID))
         ("Speed", SoapHelp::i2s(speed));
     SoapIncoming data;
@@ -442,7 +443,7 @@ int AVTransport::seek(SeekMode mode, int target, int instanceID)
         return UPNP_E_INVALID_PARAM;
     }
 
-    SoapOutgoing args(m_serviceType, "Seek");
+    SoapOutgoing args(getServiceType(), "Seek");
     args("InstanceID", SoapHelp::i2s(instanceID))
         ("Unit", sm)
         ("Target", value);
@@ -452,7 +453,7 @@ int AVTransport::seek(SeekMode mode, int target, int instanceID)
 
 int AVTransport::next(int instanceID)
 {
-    SoapOutgoing args(m_serviceType, "Next");
+    SoapOutgoing args(getServiceType(), "Next");
     args("InstanceID", SoapHelp::i2s(instanceID));
     SoapIncoming data;
     return runAction(args, data);
@@ -460,7 +461,7 @@ int AVTransport::next(int instanceID)
 
 int AVTransport::previous(int instanceID)
 {
-    SoapOutgoing args(m_serviceType, "Previous");
+    SoapOutgoing args(getServiceType(), "Previous");
     args("InstanceID", SoapHelp::i2s(instanceID));
     SoapIncoming data;
     return runAction(args, data);

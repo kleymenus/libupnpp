@@ -39,6 +39,7 @@
 
 using namespace std;
 using namespace std::placeholders;
+using namespace UPnPP;
 
 namespace UPnPClient {
 
@@ -92,24 +93,24 @@ ContentDirectory::ContentDirectory(const UPnPDeviceDesc& device,
     : Service(device, service), m_rdreqcnt(200), m_serviceKind(CDSKIND_UNKNOWN)
 {
     LOGERR("ContentDirectory::ContentDirectory: manufacturer: " << 
-           m_manufacturer << " model " << m_modelName << endl);
+           getManufacturer() << " model " << getModelName() << endl);
 
-    if (bubble_rx(m_modelName)) {
+    if (bubble_rx(getModelName())) {
         m_serviceKind = CDSKIND_BUBBLE;
         LOGDEB1("ContentDirectory::ContentDirectory: BUBBLE" << endl);
-    } else if (mediatomb_rx(m_modelName)) {
+    } else if (mediatomb_rx(getModelName())) {
         // Readdir by 200 entries is good for most, but MediaTomb likes
         // them really big. Actually 1000 is better but I don't dare
         m_rdreqcnt = 500;
         m_serviceKind = CDSKIND_MEDIATOMB;
         LOGDEB1("ContentDirectory::ContentDirectory: MEDIATOMB" << endl);
-    } else if (minidlna_rx(m_modelName)) {
+    } else if (minidlna_rx(getModelName())) {
         m_serviceKind = CDSKIND_MINIDLNA;
         LOGDEB1("ContentDirectory::ContentDirectory: MINIDLNA" << endl);
-    } else if (minim_rx(m_modelName)) {
+    } else if (minim_rx(getModelName())) {
         m_serviceKind = CDSKIND_MINIM;
         LOGDEB1("ContentDirectory::ContentDirectory: MINIM" << endl);
-    } else if (twonky_rx(m_modelName)) {
+    } else if (twonky_rx(getModelName())) {
         m_serviceKind = CDSKIND_TWONKY;
         LOGDEB1("ContentDirectory::ContentDirectory: TWONKY" << endl);
     } 
@@ -179,7 +180,7 @@ static int asyncReaddirCB(Upnp_EventType et, void *vev, void *cookie)
     return 0;
 }
     int ret = 
-        UpnpSendActionAsync(hdl, m_actionURL.c_str(), m_serviceType.c_str(),
+        UpnpSendActionAsync(hdl, getActionURL().c_str(), getServiceType().c_str(),
         0 /*devUDN*/, request, asyncReaddirCB, 0);
     sleep(10);
     return -1;
@@ -205,7 +206,7 @@ int ContentDirectory::readDirSlice(const string& objectId, int offset,
 
     // Create request
     // Some devices require an empty SortCriteria, else bad params
-    SoapOutgoing args(m_serviceType, "Browse");
+    SoapOutgoing args(getServiceType(), "Browse");
     args("ObjectID", objectId)
         ("BrowseFlag", "BrowseDirectChildren")
         ("Filter", "*")
@@ -220,9 +221,9 @@ int ContentDirectory::readDirSlice(const string& objectId, int offset,
     }
 
     string tbuf;
-    if (!data.getInt("NumberReturned", didread) ||
-        !data.getInt("TotalMatches", total) ||
-        !data.getString("Result", &tbuf)) {
+    if (!data.get("NumberReturned", didread) ||
+        !data.get("TotalMatches", total) ||
+        !data.get("Result", &tbuf)) {
         LOGERR("CDService::readDir: missing elts in response" << endl);
         return UPNP_E_BAD_RESPONSE;
     }
@@ -247,8 +248,8 @@ int ContentDirectory::readDirSlice(const string& objectId, int offset,
 int ContentDirectory::readDir(const string& objectId,
                                      UPnPDirContent& dirbuf)
 {
-    LOGDEB("CDService::readDir: url [" << m_actionURL << "] type [" <<
-           m_serviceType << "] udn [" << m_deviceId << "] objId [" <<
+    LOGDEB("CDService::readDir: url [" << getActionURL() << "] type [" <<
+           getServiceType() << "] udn [" << getDeviceId() << "] objId [" <<
            objectId << endl);
 
     int offset = 0;
@@ -276,7 +277,7 @@ int ContentDirectory::searchSlice(const string& objectId,
            offset << " count " << count << endl);
 
     // Create request
-    SoapOutgoing args(m_serviceType, "Search");
+    SoapOutgoing args(getServiceType(), "Search");
     args("ContainerID", objectId)
         ("SearchCriteria", ss)
         ("Filter", "*")
@@ -294,9 +295,9 @@ int ContentDirectory::searchSlice(const string& objectId,
     }
 
     string tbuf;
-    if (!data.getInt("NumberReturned", didread) ||
-        !data.getInt("TotalMatches", total) ||
-        !data.getString("Result", &tbuf)) {
+    if (!data.get("NumberReturned", didread) ||
+        !data.get("TotalMatches", total) ||
+        !data.get("Result", &tbuf)) {
         LOGERR("CDService::search: missing elts in response" << endl);
         return UPNP_E_BAD_RESPONSE;
     }
@@ -314,8 +315,8 @@ int ContentDirectory::search(const string& objectId,
                              const string& ss,
                              UPnPDirContent& dirbuf)
 {
-    LOGDEB("CDService::search: url [" << m_actionURL << "] type [" << 
-           m_serviceType << "] udn [" << m_deviceId << "] objid [" << 
+    LOGDEB("CDService::search: url [" << getActionURL() << "] type [" << 
+           getServiceType() << "] udn [" << getDeviceId() << "] objid [" << 
            objectId <<  "] search [" << ss << "]" << endl);
 
     int offset = 0;
@@ -338,7 +339,7 @@ int ContentDirectory::getSearchCapabilities(set<string>& result)
 {
     LOGDEB("CDService::getSearchCapabilities:" << endl);
 
-    SoapOutgoing args(m_serviceType, "GetSearchCapabilities");
+    SoapOutgoing args(getServiceType(), "GetSearchCapabilities");
     SoapIncoming data;
     int ret = runAction(args, data);
     if (ret != UPNP_E_SUCCESS) {
@@ -347,7 +348,7 @@ int ContentDirectory::getSearchCapabilities(set<string>& result)
         return ret;
     }
     string tbuf;
-    if (!data.getString("SearchCaps", &tbuf)) {
+    if (!data.get("SearchCaps", &tbuf)) {
         LOGERR("CDService::getSearchCaps: missing Result in response" << endl);
         cerr << tbuf << endl;
         return UPNP_E_BAD_RESPONSE;
@@ -368,11 +369,11 @@ int ContentDirectory::getSearchCapabilities(set<string>& result)
 int ContentDirectory::getMetadata(const string& objectId,
                                          UPnPDirContent& dirbuf)
 {
-    LOGDEB("CDService::getMetadata: url [" << m_actionURL << "] type [" <<
-           m_serviceType << "] udn [" << m_deviceId << "] objId [" <<
+    LOGDEB("CDService::getMetadata: url [" << getActionURL() << "] type [" <<
+           getServiceType() << "] udn [" << getDeviceId() << "] objId [" <<
            objectId << "]" << endl);
 
-    SoapOutgoing args(m_serviceType, "Browse");
+    SoapOutgoing args(getServiceType(), "Browse");
     SoapIncoming data;
     args("ObjectID", objectId)
         ("BrowseFlag", "BrowseMetadata")
@@ -387,7 +388,7 @@ int ContentDirectory::getMetadata(const string& objectId,
         return ret;
     }
     string tbuf;
-    if (!data.getString("Result", &tbuf)) {
+    if (!data.get("Result", &tbuf)) {
         LOGERR("CDService::getmetadata: missing Result in response" << endl);
         return UPNP_E_BAD_RESPONSE;
     }

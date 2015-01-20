@@ -30,6 +30,25 @@ using namespace std;
 
 namespace UPnPP {
 
+class SoapIncoming::Internal {
+public:
+    std::string name;
+    std::map<std::string, std::string> args;
+};
+
+SoapIncoming::SoapIncoming() 
+{
+    if ((m = new Internal()) == 0) {
+        LOGERR("SoapIncoming::SoapIncoming: out of memory" << endl);
+        return;
+    }
+}
+SoapIncoming::~SoapIncoming() 
+{
+    delete m;
+    m = 0;
+}
+
 /* Example Soap XML doc passed by libupnp is like: 
    <ns0:SetMute>
      <InstanceID>0</InstanceID>
@@ -45,14 +64,13 @@ namespace UPnPP {
 */
 bool SoapIncoming::decode(const char *callnm, IXML_Document *actReq)
 {
-    m_ok = false;
-    m_name = callnm;
+    m->name = callnm;
 
     IXML_NodeList* nl = 0;
     IXML_Node* topNode = ixmlNode_getFirstChild((IXML_Node *)actReq);
     if (topNode == 0) {
         LOGERR("SoapIncoming: Empty Action request (no topNode) ??" << endl);
-        return m_ok;
+        return false;
     }
     //LOGDEB("SoapIncoming: top node name: " << ixmlNode_getNodeName(topNode) 
     //       << endl);
@@ -60,11 +78,11 @@ bool SoapIncoming::decode(const char *callnm, IXML_Document *actReq)
     nl = ixmlNode_getChildNodes(topNode);
     if (nl == 0) {
         // Ok actually, there are no args
-        return m_ok = true;
+        return true;
     }
     //LOGDEB("SoapIncoming: childnodes list length: " << ixmlNodeList_length(nl)
     // << endl);
-
+    bool ret = false;
     for (unsigned long i = 0; i <  ixmlNodeList_length(nl); i++) {
         IXML_Node *cld = ixmlNodeList_item(nl, i);
         if (cld == 0) {
@@ -73,7 +91,7 @@ bool SoapIncoming::decode(const char *callnm, IXML_Document *actReq)
             // Seems to happen with empty arg list?? This looks like a bug, 
             // should we not get an empty node instead?
             if (i == 0) {
-                m_ok = true;
+                ret = true;
             }
             goto out;
         }
@@ -92,46 +110,50 @@ bool SoapIncoming::decode(const char *callnm, IXML_Document *actReq)
         // Can we get an empty value here ?
         if (value == 0)
             value = "";
-        m_args[name] = value;
+        m->args[name] = value;
     }
-    m_name = callnm;
-    m_ok = true;
+    m->name = callnm;
+    ret = true;
 
 out:
     if (nl)
         ixmlNodeList_free(nl);
-    return m_ok;
+    return ret;
 }
 
-bool SoapIncoming::getBool(const char *nm, bool *value) const
+const std::string& SoapIncoming::getName() const 
 {
-    map<string, string>::const_iterator it = m_args.find(nm);
-    if (it == m_args.end() || it->second.empty()) {
+    return m->name;
+}
+
+bool SoapIncoming::get(const char *nm, bool *value) const
+{
+    map<string, string>::const_iterator it = m->args.find(nm);
+    if (it == m->args.end() || it->second.empty()) {
         return false;
     }
     return stringToBool(it->second, value);
 }
 
-bool SoapIncoming::getInt(const char *nm, int *value) const
+bool SoapIncoming::get(const char *nm, int *value) const
 {
-    map<string, string>::const_iterator it = m_args.find(nm);
-    if (it == m_args.end() || it->second.empty()) {
+    map<string, string>::const_iterator it = m->args.find(nm);
+    if (it == m->args.end() || it->second.empty()) {
         return false;
     }
     *value = atoi(it->second.c_str());
     return true;
 }
 
-bool SoapIncoming::getString(const char *nm, string *value) const
+bool SoapIncoming::get(const char *nm, string *value) const
 {
-    map<string, string>::const_iterator it = m_args.find(nm);
-    if (it == m_args.end()) {
+    map<string, string>::const_iterator it = m->args.find(nm);
+    if (it == m->args.end()) {
         return false;
     }
     *value = it->second;
     return true;
 }
-
 
 string SoapHelp::xmlQuote(const string& in)
 {
@@ -194,6 +216,54 @@ string SoapHelp::i2s(int val)
     return string(cbuf);
 }
 
+class SoapOutgoing::Internal {
+public:
+    std::string serviceType;
+    std::string name;
+    std::vector<std::pair<std::string, std::string> > data;
+};
+
+SoapOutgoing::SoapOutgoing() 
+{
+    if ((m = new Internal()) == 0) {
+        LOGERR("SoapOutgoing::SoapOutgoing: out of memory" << endl);
+        return;
+    }
+}
+
+SoapOutgoing::SoapOutgoing(const std::string& st, const std::string& nm)
+{
+    if ((m = new Internal()) == 0) {
+        LOGERR("SoapOutgoing::SoapOutgoing: out of memory" << endl);
+        return;
+    }
+    m->serviceType = st;
+    m->name = nm;
+}
+
+SoapOutgoing::~SoapOutgoing()
+{
+    delete m;
+    m = 0;
+}
+
+const string& SoapOutgoing::getName() const 
+{
+    return m->name;
+}
+
+SoapOutgoing& SoapOutgoing::addarg(const string& k, const string& v) 
+{
+    m->data.push_back(pair<string, string>(k, v));
+    return *this;
+}
+
+SoapOutgoing& SoapOutgoing::operator() (const string& k, const string& v) 
+{
+    m->data.push_back(pair<string, string>(k, v));
+    return *this;
+}
+
 IXML_Document *SoapOutgoing::buildSoapBody(bool isResponse) const
 {
     IXML_Document *doc = ixmlDocument_createDocument();
@@ -201,20 +271,20 @@ IXML_Document *SoapOutgoing::buildSoapBody(bool isResponse) const
         cerr << "buildSoapBody: out of memory" << endl;
         return 0;
     }
-    string topname = string("u:") + m_name;
+    string topname = string("u:") + m->name;
     if (isResponse)
         topname += "Response";
 
     IXML_Element *top =  
-        ixmlDocument_createElementNS(doc, m_serviceType.c_str(), 
+        ixmlDocument_createElementNS(doc, m->serviceType.c_str(), 
                                      topname.c_str());
-    ixmlElement_setAttribute(top, "xmlns:u", m_serviceType.c_str());
+    ixmlElement_setAttribute(top, "xmlns:u", m->serviceType.c_str());
 
-    for (unsigned i = 0; i < m_data.size(); i++) {
+    for (unsigned i = 0; i < m->data.size(); i++) {
         IXML_Element *elt = 
-            ixmlDocument_createElement(doc, m_data[i].first.c_str());
+            ixmlDocument_createElement(doc, m->data[i].first.c_str());
         IXML_Node* textnode = 
-            ixmlDocument_createTextNode(doc, m_data[i].second.c_str());
+            ixmlDocument_createTextNode(doc, m->data[i].second.c_str());
         ixmlNode_appendChild((IXML_Node*)elt,(IXML_Node*)textnode);
         ixmlNode_appendChild((IXML_Node*)top,(IXML_Node*)elt);
     }

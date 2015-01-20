@@ -22,15 +22,17 @@
 
 namespace UPnPClient {
 
+/** For now, the Device class is just a holder for the description object. */
 class Device {
 public:
-    Device() {}
-    Device(const UPnPDeviceDesc& desc)
-    : m_desc(desc)
-        {
-        }
+    Device();
+    Device(const UPnPDeviceDesc& desc);
 
-    UPnPDeviceDesc m_desc;
+    const UPnPDeviceDesc *desc() const;
+
+private:
+    class Internal;
+    Internal *m;
 };
 
 }

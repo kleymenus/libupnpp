@@ -44,8 +44,7 @@ struct VDirContent {
     std::string mimetype;
 };
 
-/** Define a virtual interface to link libupnp operations to a device 
- * implementation 
+/** Define an interface to link libupnp operations to a device implementation 
  */
 class UpnpDevice {
 public:
