@@ -10,11 +10,11 @@ Homepage: http://www.lesbonscomptes.com/upmpdcli
 Package: libupnpp-dev
 Section: contrib/libdevel
 Architecture: any
-Depends: libupnpp0, ${misc:Depends}
+Depends: libupnpp1, ${misc:Depends}
 Description: C++ layer over libupnp (development files)
  Development library and include files for libupnpp
 
-Package: libupnpp0
+Package: libupnpp1
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Replaces: libupnpp

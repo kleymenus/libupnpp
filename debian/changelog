@@ -1,6 +1,6 @@
-libupnpp (0.9.1-1) unstable; urgency=low
+libupnpp (0.10.0-1) unstable; urgency=low
 
-  * ?
+  * API/ABI cleanup + support for pure OpenHome renderers like bubbleupnp server
 
  -- Jean-Francois Dockes <jf@dockes.org>  Fri, 14 Nov 2014 17:52:00 +0200
 
