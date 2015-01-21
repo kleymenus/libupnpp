@@ -1,8 +1,11 @@
-libupnpp (0.10.0-1) unstable; urgency=low
+libupnpp1 (0.10.0-1) unstable; urgency=low
 
-  * API/ABI cleanup + support for pure OpenHome renderers like bubbleupnp server
+  * Control: support pure OpenHome renderers like bubbleupnp server
+  * API/ABI cleanup 
+  * Avoid "service not implemented" error messages by deferring service
+    start after end of callbacks setup.
 
- -- Jean-Francois Dockes <jf@dockes.org>  Fri, 14 Nov 2014 17:52:00 +0200
+ -- Jean-Francois Dockes <jf@dockes.org>  Wed, 21 Jan 2014 07:42:00 +0200
 
 libupnpp (0.9.0-1) unstable; urgency=low
 
