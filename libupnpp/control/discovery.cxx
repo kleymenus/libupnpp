@@ -21,7 +21,15 @@
 #include <pthread.h>                    // for pthread_cond_broadcast, etc
 #include <sched.h>                      // for sched_yield
 #include <stdlib.h>                     // for free
-#include <sys/time.h>                   // for CLOCK_REALTIME
+#include <time.h>                       // for CLOCK_REALTIME
+#include <sys/time.h>
+#include <stdio.h>
+ 
+#ifdef __MACH__
+#include <mach/clock.h>
+#include <mach/mach.h>
+#endif
+
 #include <unistd.h>                     // for sleep
 #include <upnp/upnp.h>                  // for Upnp_Discovery, etc
 
@@ -430,7 +438,19 @@ bool UPnPDeviceDirectory::getDevBySelector(bool cmp(const UPnPDeviceDesc& ddesc,
 
     struct timespec wkuptime;
     long long nanos = getRemainingDelay() * 1000*1000*1000;
-    clock_gettime(CLOCK_REALTIME, &wkuptime);
+    
+    #ifdef __MACH__ // Mac OS X does not have clock_gettime, use clock_get_time
+      clock_serv_t cclock;
+      mach_timespec_t mts;
+      host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);
+      clock_get_time(cclock, &mts);
+      mach_port_deallocate(mach_task_self(), cclock);
+      wkuptime.tv_sec = mts.tv_sec;
+      wkuptime.tv_nsec = mts.tv_nsec;
+    #else
+      clock_gettime(CLOCK_REALTIME, &wkuptime);
+    #endif
+
     UPnPP::timespec_addnanos(&wkuptime, nanos);
     do {
         PTMutexLocker lock(devWaitLock);
